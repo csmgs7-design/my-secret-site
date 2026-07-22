@@ -82,7 +82,7 @@
            ================================================== */
         .window {
             position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
-            width: 90%; max-width: 550px; background: #ffffff; border-radius: 8px;
+            width: 90%; max-width: 600px; background: #ffffff; border-radius: 8px;
             box-shadow: 0 10px 40px rgba(0, 0, 0, 0.6); display: none; flex-direction: column;
             z-index: 50; overflow: hidden; animation: pop 0.2s ease-out;
         }
@@ -222,6 +222,44 @@
         </div>
     </div>
 
+    <!-- Window: 전체 문제 모음 -->
+    <div id="all-problems-window" class="window">
+        <div class="title-bar">
+            <div class="title">📂 문제 모음 (전체 목록)</div>
+            <button class="close-btn" onclick="closeWindow('all-problems-window')">✕</button>
+        </div>
+        <div class="window-content">
+            <div style="display: flex; gap: 8px; margin-bottom: 15px; align-items: center; flex-wrap: wrap; background: #f8f9fa; padding: 12px; border-radius: 8px; border: 1px solid #eee;">
+                <span style="font-weight: bold; font-size: 14px; color: #333;">정렬 기준:</span>
+                <button id="btn-sort-abc" class="btn" style="margin-top:0; padding: 6px 12px; font-size: 12px; background: #0078D7;" onclick="sortAllProblems('abc')">가나다순</button>
+                <button id="btn-sort-default" class="btn" style="margin-top:0; padding: 6px 12px; font-size: 12px; background: #888;" onclick="sortAllProblems('default')">업로드순</button>
+                <button id="btn-sort-category" class="btn" style="margin-top:0; padding: 6px 12px; font-size: 12px; background: #888;" onclick="sortAllProblems('category')">단원별</button>
+            </div>
+            <div id="all-problems-count" style="font-size: 13px; color: #555; margin-bottom: 10px; font-weight: bold;"></div>
+            <div id="all-problems-list" style="border-top: 2px solid #0078D7;"></div>
+            <button class="btn" onclick="closeWindow('all-problems-window')" style="background:#888; width:100%; margin-top: 20px;">닫기</button>
+        </div>
+    </div>
+
+    <!-- Window: 전체 단원 모음 -->
+    <div id="all-categories-window" class="window">
+        <div class="title-bar">
+            <div class="title">📁 단원 모음 (전체 단원 목록)</div>
+            <button class="close-btn" onclick="closeWindow('all-categories-window')">✕</button>
+        </div>
+        <div class="window-content">
+            <div style="display: flex; gap: 8px; margin-bottom: 15px; align-items: center; flex-wrap: wrap; background: #f8f9fa; padding: 12px; border-radius: 8px; border: 1px solid #eee;">
+                <span style="font-weight: bold; font-size: 14px; color: #333;">정렬 기준:</span>
+                <button id="btn-cat-sort-abc" class="btn" style="margin-top:0; padding: 6px 12px; font-size: 12px; background: #0078D7;" onclick="sortAllCategories('abc')">가나다순</button>
+                <button id="btn-cat-sort-default" class="btn" style="margin-top:0; padding: 6px 12px; font-size: 12px; background: #888;" onclick="sortAllCategories('default')">기본순</button>
+                <button id="btn-cat-sort-count" class="btn" style="margin-top:0; padding: 6px 12px; font-size: 12px; background: #888;" onclick="sortAllCategories('count')">문제많은순</button>
+            </div>
+            <div id="all-categories-count" style="font-size: 13px; color: #555; margin-bottom: 10px; font-weight: bold;"></div>
+            <div id="all-categories-list" style="border-top: 2px solid #0078D7;"></div>
+            <button class="btn" onclick="closeWindow('all-categories-window')" style="background:#888; width:100%; margin-top: 20px;">닫기</button>
+        </div>
+    </div>
+
     <!-- Window: 통계 -->
     <div id="stats-window" class="window">
         <div class="title-bar">
@@ -297,7 +335,8 @@
         // 전역 상태 변수
         window.problemDB = [];
         window.progressDB = {};
-        window.currentEditingGlobalIdx = null; // 현재 사진 작업 중인 문제 인덱스
+        let currentProblemSortType = 'abc'; // 문제 모음 정렬 상태 (기본값: 가나다순)
+        let currentCategorySortType = 'abc'; // 단원 모음 정렬 상태 (기본값: 가나다순)
 
         // 클라우드 데이터 로드
         async function loadCloudData() {
@@ -313,7 +352,7 @@
                     window.problemDB.push({ id: document.id, ...document.data() });
                 });
                 
-                // 순서(order) 기준 오름차순 정렬
+                // 기본 정렬: 업로드 순서 기준
                 window.problemDB.sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
                 
                 window.renderDesktop();
@@ -358,6 +397,14 @@
                     <div class="icon-img">⚙️</div>
                     <div class="icon-text">DB 업로드</div>
                 </div>
+                <div class="desktop-icon" onclick="openAllProblemsManager()">
+                    <div class="icon-img">📂</div>
+                    <div class="icon-text">문제 모음</div>
+                </div>
+                <div class="desktop-icon" onclick="openAllCategoriesManager()">
+                    <div class="icon-img">📁</div>
+                    <div class="icon-text">단원 모음</div>
+                </div>
                 <div class="desktop-icon" onclick="openStats()">
                     <div class="icon-img">📊</div>
                     <div class="icon-text">오답 통계</div>
@@ -382,6 +429,147 @@
             });
         }
 
+        /* 문제 모음 관련 로직 */
+        window.openAllProblemsManager = function() {
+            window.sortAllProblems(currentProblemSortType);
+            window.openWindow('all-problems-window');
+        }
+
+        window.sortAllProblems = function(sortType) {
+            currentProblemSortType = sortType;
+            
+            const btnAbc = document.getElementById('btn-sort-abc');
+            const btnDefault = document.getElementById('btn-sort-default');
+            const btnCategory = document.getElementById('btn-sort-category');
+            
+            btnAbc.style.background = sortType === 'abc' ? '#0078D7' : '#888';
+            btnDefault.style.background = sortType === 'default' ? '#0078D7' : '#888';
+            btnCategory.style.background = sortType === 'category' ? '#0078D7' : '#888';
+
+            renderAllProblemsList();
+        }
+
+        function renderAllProblemsList() {
+            const listEl = document.getElementById('all-problems-list');
+            const countEl = document.getElementById('all-problems-count');
+
+            if (!window.problemDB || window.problemDB.length === 0) {
+                countEl.innerText = '총 0개의 문제';
+                listEl.innerHTML = '<p style="color:#666; padding:20px 0; text-align:center;">등록된 문제가 없습니다.</p>';
+                return;
+            }
+
+            countEl.innerText = `총 ${window.problemDB.length}개의 문제`;
+
+            let sortedList = [...window.problemDB];
+
+            if (currentProblemSortType === 'abc') {
+                sortedList.sort((a, b) => {
+                    const qA = parseQuestionAndOptions(a.question).mainQuestion;
+                    const qB = parseQuestionAndOptions(b.question).mainQuestion;
+                    return qA.localeCompare(qB, 'ko');
+                });
+            } else if (currentProblemSortType === 'category') {
+                sortedList.sort((a, b) => {
+                    const catCompare = a.category.localeCompare(b.category, 'ko');
+                    if (catCompare !== 0) return catCompare;
+                    const qA = parseQuestionAndOptions(a.question).mainQuestion;
+                    const qB = parseQuestionAndOptions(b.question).mainQuestion;
+                    return qA.localeCompare(qB, 'ko');
+                });
+            } else {
+                sortedList.sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+            }
+
+            let html = '';
+            sortedList.forEach((p, idx) => {
+                const parsed = parseQuestionAndOptions(p.question);
+                const hasImgTag = p.image ? `<span class="img-status has-img" style="font-size:10px; padding:2px 6px; margin-left: auto;">사진 첨부됨</span>` : '';
+                
+                html += `
+                    <div style="padding: 14px 10px; border-bottom: 1px solid #eee; display: flex; flex-direction: column; gap: 6px; background: ${idx % 2 === 0 ? '#ffffff' : '#fcfcfc'};">
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <span style="font-size: 11px; background: #e1dfdd; color: #333; padding: 3px 7px; border-radius: 4px; font-weight: bold;">📁 ${p.category}</span>
+                            <span style="font-size: 12px; font-weight: bold; color: #0078D7;">#${idx + 1}</span>
+                            ${hasImgTag}
+                        </div>
+                        <div style="font-size: 15px; font-weight: 600; color: #222; line-height: 1.4; word-break: keep-all;">
+                            ${parsed.mainQuestion}
+                        </div>
+                        <div style="font-size: 13px; color: #23b26d; font-weight: bold; background: rgba(35, 178, 109, 0.08); padding: 6px 10px; border-radius: 4px; width: fit-content;">
+                            정답: ${p.answer}
+                        </div>
+                    </div>
+                `;
+            });
+            listEl.innerHTML = html;
+        }
+
+        /* 단원 모음 관련 로직 */
+        window.openAllCategoriesManager = function() {
+            window.sortAllCategories(currentCategorySortType);
+            window.openWindow('all-categories-window');
+        }
+
+        window.sortAllCategories = function(sortType) {
+            currentCategorySortType = sortType;
+
+            const btnAbc = document.getElementById('btn-cat-sort-abc');
+            const btnDefault = document.getElementById('btn-cat-sort-default');
+            const btnCount = document.getElementById('btn-cat-sort-count');
+
+            btnAbc.style.background = sortType === 'abc' ? '#0078D7' : '#888';
+            btnDefault.style.background = sortType === 'default' ? '#0078D7' : '#888';
+            btnCount.style.background = sortType === 'count' ? '#0078D7' : '#888';
+
+            renderAllCategoriesList();
+        }
+
+        function renderAllCategoriesList() {
+            const listEl = document.getElementById('all-categories-list');
+            const countEl = document.getElementById('all-categories-count');
+
+            if (!window.problemDB || window.problemDB.length === 0) {
+                countEl.innerText = '총 0개의 단원';
+                listEl.innerHTML = '<p style="color:#666; padding:20px 0; text-align:center;">등록된 단원이 없습니다.</p>';
+                return;
+            }
+
+            // 단원 정보 맵핑
+            const categoriesMap = {};
+            window.problemDB.forEach((p, idx) => {
+                if (!categoriesMap[p.category]) {
+                    categoriesMap[p.category] = { name: p.category, count: 0, firstIndex: idx };
+                }
+                categoriesMap[p.category].count++;
+            });
+
+            let catList = Object.values(categoriesMap);
+            countEl.innerText = `총 ${catList.length}개의 단원`;
+
+            if (currentCategorySortType === 'abc') {
+                catList.sort((a, b) => a.name.localeCompare(b.name, 'ko'));
+            } else if (currentCategorySortType === 'count') {
+                catList.sort((a, b) => b.count - a.count);
+            } else {
+                catList.sort((a, b) => a.firstIndex - b.firstIndex);
+            }
+
+            let html = '';
+            catList.forEach((cat) => {
+                html += `
+                    <div class="list-item" onclick="closeWindow('all-categories-window'); startQuizByCategory('${cat.name}');" style="display: flex; justify-content: space-between; align-items: center; padding: 16px 12px;">
+                        <div style="display: flex; flex-direction: column; gap: 4px;">
+                            <span class="list-title" style="font-size: 16px; color: #222;">📁 ${cat.name}</span>
+                            <span style="font-size: 13px; color: #666; font-weight: 500;">총 ${cat.count}문제</span>
+                        </div>
+                        <button class="btn" style="margin-top: 0; padding: 8px 16px; font-size: 13px; background: #0078D7; border-radius: 6px;">문제 풀기 ➔</button>
+                    </div>
+                `;
+            });
+            listEl.innerHTML = html;
+        }
+
         window.renameCategory = async function(oldName) {
             const newName = prompt(`'${oldName}'의 새 이름을 입력하세요:`, oldName);
             if (newName && newName.trim() !== "" && newName !== oldName) {
@@ -404,15 +592,8 @@
             }
         }
 
-        window.openWindow = function(id) { 
-            document.querySelectorAll('.window').forEach(w => w.classList.remove('active')); 
-            document.getElementById(id).classList.add('active'); 
-        }
-        
-        window.closeWindow = function(id) { 
-            document.getElementById(id).classList.remove('active'); 
-            if (id === 'image-window') window.currentEditingGlobalIdx = null;
-        }
+        window.openWindow = function(id) { document.querySelectorAll('.window').forEach(w => w.classList.remove('active')); document.getElementById(id).classList.add('active'); }
+        window.closeWindow = function(id) { document.getElementById(id).classList.remove('active'); }
         
         setInterval(() => {
             const now = new Date();
@@ -450,11 +631,14 @@
                     
                     await batch.commit();
                     
+                    // 메모리 DB 정렬
                     window.problemDB.sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+                    
                     window.renderDesktop();
                     alert(`업로드 성공!`);
                     window.closeWindow('upload-window');
                     
+                    // 업로드 윈도우 내용 원상복구
                     document.getElementById('upload-window').querySelector('.window-content').innerHTML = `
                         <p style="font-weight:bold; margin-bottom:10px;">JSON 파일을 업로드 하세요.</p>
                         <input type="file" id="file-input" accept=".json, .txt">
@@ -489,7 +673,6 @@
 
         /* 사진 추가 관리자 */
         window.openImageManager = function() {
-            window.currentEditingGlobalIdx = null;
             const content = document.getElementById('image-window-content');
             const categories = [...new Set(window.problemDB.map(p => p.category))];
             
@@ -513,7 +696,6 @@
         }
 
         window.showImageQuestions = function(category) {
-            window.currentEditingGlobalIdx = null;
             const content = document.getElementById('image-window-content');
             let html = `
                 <button class="btn" style="background:#eee; color:#333; margin-top:0; margin-bottom:15px;" onclick="openImageManager()">⬅️ 카테고리 목록으로 돌아가기</button>
@@ -540,21 +722,20 @@
         }
 
         window.openImageUploader = function(globalIdx) {
-            window.currentEditingGlobalIdx = globalIdx;
             const content = document.getElementById('image-window-content');
             const p = window.problemDB[globalIdx];
             const parsedQuestion = parseQuestionAndOptions(p.question).mainQuestion;
             
             let html = `
                 <button class="btn" style="background:#eee; color:#333; margin-top:0; margin-bottom:15px;" onclick="showImageQuestions('${p.category}')">⬅️ 문제 목록으로 돌아가기</button>
-                <div style="background:#f9f9f9; padding:15px; border-radius:8px; margin-bottom:15px;">
+                <div style="background:#f9f9f9; padding:15px; border-radius:8px; margin-bottom:20px;">
                     <span style="font-size:12px; color:#888;">대상 문제</span><br>
                     <strong>${parsedQuestion}</strong>
                 </div>
             `;
             if (p.image) {
                 html += `
-                    <div style="text-align:center; background:#eee; padding:10px; border-radius:8px; margin-bottom:15px;">
+                    <div style="text-align:center; background:#eee; padding:10px; border-radius:8px; margin-bottom:10px;">
                         <img src="${p.image}" style="max-width:100%; max-height:200px; border-radius:4px;"><br>
                         <button class="btn" style="background:#e81123;" onclick="deleteImage(${globalIdx})">🗑️ 현재 사진 삭제</button>
                     </div>
@@ -562,21 +743,13 @@
             } else {
                 html += `<p style="color:#666; font-size:14px; margin-bottom:10px;">등록된 사진이 없습니다.</p>`;
             }
-            html += `
-                <div style="border: 2px dashed #0078D7; border-radius: 8px; padding: 20px; text-align: center; background: #f0f8ff; margin-bottom: 10px;">
-                    <p style="font-weight: bold; color: #0078D7; margin-bottom: 5px;">📋 캡처한 이미지 Ctrl + V 로 붙여넣기</p>
-                    <p style="font-size: 12px; color: #666;">클립보드에 이미지를 복사한 후 이 창에서 Ctrl+V(Cmd+V)를 누르면 즉시 첨부됩니다.</p>
-                </div>
-                <p style="font-size: 12px; color: #888; margin-top: 10px; text-align: center;">또는 파일로 선택:</p>
-                <input type="file" accept="image/*" onchange="uploadAndCompressImage(event, ${globalIdx})">
-            `;
+            html += `<input type="file" accept="image/*" onchange="uploadAndCompressImage(event, ${globalIdx})">`;
             content.innerHTML = html;
         }
 
-        // 이미지 공통 파일 처리 함수 (파일 직접 선택 & Ctrl+V 둘 다 사용)
-        window.processAndSaveImageFile = function(file, globalIdx) {
-            if (!file || !file.type.startsWith('image/')) return;
-            
+        window.uploadAndCompressImage = function(event, globalIdx) {
+            const file = event.target.files[0];
+            if(!file) return;
             const reader = new FileReader();
             reader.onload = function(e) {
                 const img = new Image();
@@ -596,41 +769,12 @@
                     // Firebase 업데이트
                     await updateDoc(doc(db, "problems", window.problemDB[globalIdx].id), { image: base64Img });
                     
-                    // 현재 수정 창 갱신
-                    if (window.currentEditingGlobalIdx === globalIdx) {
-                        window.openImageUploader(globalIdx);
-                    }
+                    window.openImageUploader(globalIdx);
                 }
                 img.src = e.target.result;
             };
             reader.readAsDataURL(file);
         }
-
-        window.uploadAndCompressImage = function(event, globalIdx) {
-            const file = event.target.files[0];
-            if (file) window.processAndSaveImageFile(file, globalIdx);
-        }
-
-        // 클립보드 붙여넣기(Ctrl+V) 이벤트 리스너
-        document.addEventListener('paste', function(e) {
-            const imageWindow = document.getElementById('image-window');
-            // 사진 수정 창이 켜져있고 수정 대상 문제가 지정되어 있을 때만 실행
-            if (imageWindow && imageWindow.classList.contains('active') && window.currentEditingGlobalIdx !== null) {
-                const clipboardData = e.clipboardData || window.clipboardData;
-                if (!clipboardData || !clipboardData.items) return;
-
-                for (let item of clipboardData.items) {
-                    if (item.type.startsWith('image/')) {
-                        const file = item.getAsFile();
-                        if (file) {
-                            e.preventDefault();
-                            window.processAndSaveImageFile(file, window.currentEditingGlobalIdx);
-                            break;
-                        }
-                    }
-                }
-            }
-        });
 
         window.deleteImage = async function(globalIdx) {
             if(confirm("정말 이 사진을 삭제하시겠습니까?")) {
@@ -804,7 +948,7 @@
         window.goToNextQuestion = function() {
             currentQuestionIndex++;
             window.progressDB[currentCategoryName] = currentQuestionIndex;
-            window.saveProgress();
+            window.saveProgress(); // Firebase 진행률 업데이트
 
             if (currentQuestionIndex < currentQuizSession.length) {
                 renderQuestion();
