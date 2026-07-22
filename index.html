@@ -297,6 +297,7 @@
         // 전역 상태 변수
         window.problemDB = [];
         window.progressDB = {};
+        window.currentEditingGlobalIdx = null; // 현재 사진 작업 중인 문제 인덱스
 
         // 클라우드 데이터 로드
         async function loadCloudData() {
@@ -312,7 +313,7 @@
                     window.problemDB.push({ id: document.id, ...document.data() });
                 });
                 
-                // 순서(order) 기준 오름차순 정렬 추가 (순서 뒤죽박죽 버그 해결)
+                // 순서(order) 기준 오름차순 정렬
                 window.problemDB.sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
                 
                 window.renderDesktop();
@@ -403,8 +404,15 @@
             }
         }
 
-        window.openWindow = function(id) { document.querySelectorAll('.window').forEach(w => w.classList.remove('active')); document.getElementById(id).classList.add('active'); }
-        window.closeWindow = function(id) { document.getElementById(id).classList.remove('active'); }
+        window.openWindow = function(id) { 
+            document.querySelectorAll('.window').forEach(w => w.classList.remove('active')); 
+            document.getElementById(id).classList.add('active'); 
+        }
+        
+        window.closeWindow = function(id) { 
+            document.getElementById(id).classList.remove('active'); 
+            if (id === 'image-window') window.currentEditingGlobalIdx = null;
+        }
         
         setInterval(() => {
             const now = new Date();
@@ -433,7 +441,7 @@
                                 question: item.question, 
                                 answer: String(item.answer).trim(), 
                                 wrongCount: item.wrongCount || 0,
-                                order: item.order !== undefined ? item.order : index // 문제 번환 순서 저장
+                                order: item.order !== undefined ? item.order : index
                             };
                             batch.set(newDocRef, newObj);
                             window.problemDB.push({ id: newDocRef.id, ...newObj });
@@ -442,14 +450,11 @@
                     
                     await batch.commit();
                     
-                    // 메모리 DB 정렬
                     window.problemDB.sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
-                    
                     window.renderDesktop();
                     alert(`업로드 성공!`);
                     window.closeWindow('upload-window');
                     
-                    // 업로드 윈도우 내용 원상복구
                     document.getElementById('upload-window').querySelector('.window-content').innerHTML = `
                         <p style="font-weight:bold; margin-bottom:10px;">JSON 파일을 업로드 하세요.</p>
                         <input type="file" id="file-input" accept=".json, .txt">
@@ -484,6 +489,7 @@
 
         /* 사진 추가 관리자 */
         window.openImageManager = function() {
+            window.currentEditingGlobalIdx = null;
             const content = document.getElementById('image-window-content');
             const categories = [...new Set(window.problemDB.map(p => p.category))];
             
@@ -507,6 +513,7 @@
         }
 
         window.showImageQuestions = function(category) {
+            window.currentEditingGlobalIdx = null;
             const content = document.getElementById('image-window-content');
             let html = `
                 <button class="btn" style="background:#eee; color:#333; margin-top:0; margin-bottom:15px;" onclick="openImageManager()">⬅️ 카테고리 목록으로 돌아가기</button>
@@ -533,20 +540,21 @@
         }
 
         window.openImageUploader = function(globalIdx) {
+            window.currentEditingGlobalIdx = globalIdx;
             const content = document.getElementById('image-window-content');
             const p = window.problemDB[globalIdx];
             const parsedQuestion = parseQuestionAndOptions(p.question).mainQuestion;
             
             let html = `
                 <button class="btn" style="background:#eee; color:#333; margin-top:0; margin-bottom:15px;" onclick="showImageQuestions('${p.category}')">⬅️ 문제 목록으로 돌아가기</button>
-                <div style="background:#f9f9f9; padding:15px; border-radius:8px; margin-bottom:20px;">
+                <div style="background:#f9f9f9; padding:15px; border-radius:8px; margin-bottom:15px;">
                     <span style="font-size:12px; color:#888;">대상 문제</span><br>
                     <strong>${parsedQuestion}</strong>
                 </div>
             `;
             if (p.image) {
                 html += `
-                    <div style="text-align:center; background:#eee; padding:10px; border-radius:8px; margin-bottom:10px;">
+                    <div style="text-align:center; background:#eee; padding:10px; border-radius:8px; margin-bottom:15px;">
                         <img src="${p.image}" style="max-width:100%; max-height:200px; border-radius:4px;"><br>
                         <button class="btn" style="background:#e81123;" onclick="deleteImage(${globalIdx})">🗑️ 현재 사진 삭제</button>
                     </div>
@@ -554,13 +562,21 @@
             } else {
                 html += `<p style="color:#666; font-size:14px; margin-bottom:10px;">등록된 사진이 없습니다.</p>`;
             }
-            html += `<input type="file" accept="image/*" onchange="uploadAndCompressImage(event, ${globalIdx})">`;
+            html += `
+                <div style="border: 2px dashed #0078D7; border-radius: 8px; padding: 20px; text-align: center; background: #f0f8ff; margin-bottom: 10px;">
+                    <p style="font-weight: bold; color: #0078D7; margin-bottom: 5px;">📋 캡처한 이미지 Ctrl + V 로 붙여넣기</p>
+                    <p style="font-size: 12px; color: #666;">클립보드에 이미지를 복사한 후 이 창에서 Ctrl+V(Cmd+V)를 누르면 즉시 첨부됩니다.</p>
+                </div>
+                <p style="font-size: 12px; color: #888; margin-top: 10px; text-align: center;">또는 파일로 선택:</p>
+                <input type="file" accept="image/*" onchange="uploadAndCompressImage(event, ${globalIdx})">
+            `;
             content.innerHTML = html;
         }
 
-        window.uploadAndCompressImage = function(event, globalIdx) {
-            const file = event.target.files[0];
-            if(!file) return;
+        // 이미지 공통 파일 처리 함수 (파일 직접 선택 & Ctrl+V 둘 다 사용)
+        window.processAndSaveImageFile = function(file, globalIdx) {
+            if (!file || !file.type.startsWith('image/')) return;
+            
             const reader = new FileReader();
             reader.onload = function(e) {
                 const img = new Image();
@@ -580,12 +596,41 @@
                     // Firebase 업데이트
                     await updateDoc(doc(db, "problems", window.problemDB[globalIdx].id), { image: base64Img });
                     
-                    window.openImageUploader(globalIdx);
+                    // 현재 수정 창 갱신
+                    if (window.currentEditingGlobalIdx === globalIdx) {
+                        window.openImageUploader(globalIdx);
+                    }
                 }
                 img.src = e.target.result;
             };
             reader.readAsDataURL(file);
         }
+
+        window.uploadAndCompressImage = function(event, globalIdx) {
+            const file = event.target.files[0];
+            if (file) window.processAndSaveImageFile(file, globalIdx);
+        }
+
+        // 클립보드 붙여넣기(Ctrl+V) 이벤트 리스너
+        document.addEventListener('paste', function(e) {
+            const imageWindow = document.getElementById('image-window');
+            // 사진 수정 창이 켜져있고 수정 대상 문제가 지정되어 있을 때만 실행
+            if (imageWindow && imageWindow.classList.contains('active') && window.currentEditingGlobalIdx !== null) {
+                const clipboardData = e.clipboardData || window.clipboardData;
+                if (!clipboardData || !clipboardData.items) return;
+
+                for (let item of clipboardData.items) {
+                    if (item.type.startsWith('image/')) {
+                        const file = item.getAsFile();
+                        if (file) {
+                            e.preventDefault();
+                            window.processAndSaveImageFile(file, window.currentEditingGlobalIdx);
+                            break;
+                        }
+                    }
+                }
+            }
+        });
 
         window.deleteImage = async function(globalIdx) {
             if(confirm("정말 이 사진을 삭제하시겠습니까?")) {
@@ -759,7 +804,7 @@
         window.goToNextQuestion = function() {
             currentQuestionIndex++;
             window.progressDB[currentCategoryName] = currentQuestionIndex;
-            window.saveProgress(); // Firebase 진행률 업데이트
+            window.saveProgress();
 
             if (currentQuestionIndex < currentQuizSession.length) {
                 renderQuestion();
