@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Quizlet 스타일 문제 풀이 앱 (개선판)</title>
+    <title>Quizlet 스타일 문제 풀이 앱 (Firebase 클라우드 연동)</title>
     <style>
         /* ==================================================
            CSS: 초기화 및 기본 UI
@@ -59,7 +59,6 @@
         .desktop-icon .icon-img { font-size: 45px; margin-bottom: 5px; filter: drop-shadow(2px 2px 2px rgba(0,0,0,0.5)); }
         .desktop-icon .icon-text { font-size: 13px; text-align: center; word-break: keep-all; font-weight: 500; display: flex; align-items: center; justify-content: center; gap: 5px;}
         
-        /* 이름 변경 연필 아이콘 */
         .rename-btn { font-size: 11px; cursor: pointer; opacity: 0.7; transition: 0.2s; }
         .rename-btn:hover { opacity: 1; transform: scale(1.2); }
 
@@ -82,8 +81,7 @@
            윈도우 창 공통 스타일
            ================================================== */
         .window {
-            position: absolute;
-            top: 50%; left: 50%; transform: translate(-50%, -50%);
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
             width: 90%; max-width: 550px; background: #ffffff; border-radius: 8px;
             box-shadow: 0 10px 40px rgba(0, 0, 0, 0.6); display: none; flex-direction: column;
             z-index: 50; overflow: hidden; animation: pop 0.2s ease-out;
@@ -101,15 +99,23 @@
         button.btn:hover { background: #005a9e; }
         input[type="file"] { width: 100%; padding: 12px; margin-top: 10px; border: 1px dashed #aaa; border-radius: 6px; background: #fafafa; }
 
-        /* 통계 UI */
+        /* 통계 UI & 목록(List) UI 공통 */
         .stat-group { background: #f8f9fa; border: 1px solid #dee2e6; padding: 15px; border-radius: 8px; margin-bottom: 15px; display: flex; justify-content: space-between; align-items: center; }
         .stat-group-title { font-weight: bold; font-size: 16px; color: #333; }
         .stat-group-count { color: #e81123; font-weight: bold; font-size: 14px; }
         .top-120-btn { width: 100%; background: #d83b01; margin-bottom: 20px; font-size: 16px; padding: 15px;}
         .top-120-btn:hover { background: #a82e01; }
 
+        .list-item { padding: 15px; border-bottom: 1px solid #eee; cursor: pointer; display: flex; align-items: center; gap: 10px; transition: 0.2s; }
+        .list-item:hover { background: #f0f8ff; border-left: 4px solid #0078D7; }
+        .list-title { font-weight: bold; color: #333; }
+        .list-preview { font-size: 12px; color: #888; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 80%; }
+        
+        .img-status { font-size: 12px; padding: 3px 8px; border-radius: 12px; background: #eee; font-weight: bold; }
+        .img-status.has-img { background: #23b26d; color: white; }
+
         /* ==================================================
-           퀴즈 전체화면 UI (Quizlet 스타일 피드백 적용)
+           퀴즈 전체화면 UI
            ================================================== */
         #quiz-fullscreen {
             position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
@@ -133,9 +139,13 @@
         }
         
         .question-category { font-size: 14px; color: #a0aabf; margin-bottom: 20px; }
+        
+        /* 추가된 문제 이미지 영역 */
+        .quiz-image-container { text-align: center; margin-bottom: 20px; display: none; background: #1a2238; padding: 15px; border-radius: 8px; }
+        .quiz-image-container img { max-width: 100%; max-height: 300px; border-radius: 4px; object-fit: contain; }
+
         .question-text { font-size: 24px; font-weight: 600; line-height: 1.5; margin-bottom: 20px; word-break: keep-all; }
         
-        /* 피드백 텍스트 영역 */
         .feedback-text { font-size: 16px; font-weight: bold; margin-bottom: 20px; height: 24px; }
         .feedback-text.incorrect { color: #ff7873; }
         .feedback-text.correct { color: #23b26d; }
@@ -152,7 +162,6 @@
         
         .option-number { font-weight: bold; color: #a0aabf; margin-right: 15px; font-size: 18px; width: 24px; text-align: center; }
         
-        /* 퀴즐렛 스타일 정답/오답 디자인 */
         .option-btn.correct { border: 2px dashed #23b26d !important; background-color: rgba(35, 178, 109, 0.1) !important; }
         .option-btn.correct .option-number { color: #23b26d; }
         
@@ -161,8 +170,12 @@
 
         .quiz-controls { max-width: 900px; width: 100%; display: flex; justify-content: space-between; align-items: center; margin-top: 20px; }
         
-        .quit-btn { background: transparent; color: #a0aabf; border: none; font-size: 16px; cursor: pointer; padding: 10px 0; }
+        .left-controls { display: flex; gap: 20px; align-items: center; }
+        .quit-btn { background: transparent; color: #a0aabf; border: none; font-size: 15px; cursor: pointer; padding: 10px 0; }
         .quit-btn:hover { color: white; text-decoration: underline; }
+
+        .restart-btn { background: transparent; color: #ff7873; border: none; font-size: 15px; font-weight: bold; cursor: pointer; padding: 10px 0; }
+        .restart-btn:hover { color: #ff4d4d; text-decoration: underline; }
 
         .next-btn {
             background: #4255ff; color: white; border: none; padding: 12px 30px; font-size: 16px; font-weight: bold;
@@ -174,13 +187,20 @@
             .options-grid { grid-template-columns: 1fr; }
             .quiz-card { padding: 20px; }
             .question-text { font-size: 18px; }
+            .left-controls { flex-direction: column; gap: 5px; align-items: flex-start; }
+            .quiz-controls { align-items: flex-start; }
         }
     </style>
 </head>
 <body>
 
     <!-- 바탕화면 -->
-    <div id="desktop"></div>
+    <div id="desktop">
+        <!-- 초기 로딩 메시지 -->
+        <div style="color:white; padding:20px; font-size:18px; font-weight:bold; text-shadow: 1px 1px 3px rgba(0,0,0,0.8);">
+            ☁️ 클라우드 DB 불러오는 중...
+        </div>
+    </div>
 
     <!-- 작업표시줄 -->
     <div id="taskbar">
@@ -192,12 +212,11 @@
     <!-- Window: DB 업로드 -->
     <div id="upload-window" class="window">
         <div class="title-bar">
-            <div class="title">📁 DB Upload</div>
+            <div class="title">📁 DB Upload (Cloud)</div>
             <button class="close-btn" onclick="closeWindow('upload-window')">✕</button>
         </div>
         <div class="window-content">
             <p style="font-weight:bold; margin-bottom:10px;">JSON 파일을 업로드 하세요.</p>
-            <p style="font-size: 13px; color: #666;">※ 업로드하는 파일의 이름이 <strong>카테고리명(문제 제목)</strong>으로 자동 지정됩니다.</p>
             <input type="file" id="file-input" accept=".json, .txt">
             <button class="btn" onclick="closeWindow('upload-window')" style="background:#888; width:100%;">닫기</button>
         </div>
@@ -211,10 +230,18 @@
         </div>
         <div class="window-content">
             <button class="btn top-120-btn" onclick="startTop120Review()">🔥 틀린 문제 TOP 120 몰아보기</button>
-            <p style="font-weight:bold; margin-bottom:15px; border-bottom:2px solid #eee; padding-bottom:10px;">단원별 오답 현황</p>
             <div id="stats-list"></div>
             <button class="btn" onclick="closeWindow('stats-window')" style="background:#888; width:100%;">닫기</button>
         </div>
+    </div>
+
+    <!-- Window: 사진 추가 관리자 -->
+    <div id="image-window" class="window">
+        <div class="title-bar">
+            <div class="title">🖼️ 사진 추가 관리자</div>
+            <button class="close-btn" onclick="closeWindow('image-window')">✕</button>
+        </div>
+        <div class="window-content" id="image-window-content"></div>
     </div>
 
     <!-- 퀴즈 전체화면 -->
@@ -227,33 +254,87 @@
 
         <div class="quiz-card">
             <div class="question-category" id="quiz-category">단원명</div>
+            
+            <div class="quiz-image-container" id="quiz-image-container">
+                <img id="quiz-image" src="" alt="문제 첨부 이미지">
+            </div>
+
             <div class="question-text" id="quiz-question-text">문제가 여기에 표시됩니다.</div>
-            
-            <!-- 피드백 텍스트 (정답/오답 시 표시) -->
             <div class="feedback-text" id="quiz-feedback-text"></div>
-            
             <div class="options-grid" id="quiz-options-grid"></div>
         </div>
         
         <div class="quiz-controls">
-            <button class="quit-btn" onclick="quitQuiz()">⚑ 퀴즈 종료 (진행상황 자동저장)</button>
+            <div class="left-controls">
+                <button class="quit-btn" onclick="quitQuiz()">⚑ 퀴즈 종료 (자동저장)</button>
+                <button class="restart-btn" onclick="resetProgress()">↺ 학습 새로 시작하기</button>
+            </div>
             <button class="next-btn" id="next-btn" onclick="goToNextQuestion()">다음 문제로 이동 (Enter) ➔</button>
         </div>
     </div>
 
-    <script>
+    <!-- ==================================================
+         Firebase 설정 및 스크립트 (모듈화)
+         ================================================== -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/12.16.0/firebase-app.js";
+        import { getFirestore, collection, getDocs, doc, setDoc, updateDoc, writeBatch, getDoc, deleteField } from "https://www.gstatic.com/firebasejs/12.16.0/firebase-firestore.js";
+
+        // Your web app's Firebase configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyB1NUyTsO8-q6zMgy6JBJUnAuaTGhUK5xI",
+            authDomain: "my-safety-quiz.firebaseapp.com",
+            projectId: "my-safety-quiz",
+            storageBucket: "my-safety-quiz.firebasestorage.app",
+            messagingSenderId: "976388519071",
+            appId: "1:976388519071:web:ba2a22c0ab093e58b55eaa"
+        };
+
+        // Initialize Firebase
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+
+        // 전역 상태 변수
+        window.problemDB = [];
+        window.progressDB = {};
+
+        // 클라우드 데이터 로드
+        async function loadCloudData() {
+            try {
+                // 진도율 로드
+                const progSnap = await getDoc(doc(db, "settings", "progress"));
+                if (progSnap.exists()) window.progressDB = progSnap.data();
+
+                // 문제 데이터 로드
+                const querySnapshot = await getDocs(collection(db, "problems"));
+                window.problemDB = [];
+                querySnapshot.forEach((document) => {
+                    window.problemDB.push({ id: document.id, ...document.data() });
+                });
+                
+                window.renderDesktop();
+            } catch (error) {
+                console.error("Firebase 로딩 에러:", error);
+                alert("클라우드 데이터베이스 연결에 실패했습니다.");
+            }
+        }
+
+        // 앱 초기 실행
+        loadCloudData();
+
+        // 진행 상황 저장 함수 (Firestore)
+        window.saveProgress = async function() {
+            try {
+                await setDoc(doc(db, "settings", "progress"), window.progressDB);
+            } catch (e) {
+                console.error("Progress 저장 오류:", e);
+            }
+        }
+
         /* ==================================================
-           JavaScript: 데이터 관리, UI 상태, 핵심 로직
+           UI 및 이벤트 함수 (window 객체에 바인딩)
            ================================================== */
 
-        // 1. 데이터 및 진행상황 초기화 (문제점 1 반영)
-        let problemDB = JSON.parse(localStorage.getItem('myQuizDB')) || [];
-        let progressDB = JSON.parse(localStorage.getItem('myQuizProgress')) || {};
-
-        function saveDB() { localStorage.setItem('myQuizDB', JSON.stringify(problemDB)); }
-        function saveProgress() { localStorage.setItem('myQuizProgress', JSON.stringify(progressDB)); }
-
-        // 배경화면 변경
         const wallpapers = [
             "https://images.unsplash.com/photo-1617042375876-a13e36732a04?q=80&w=1920&auto=format&fit=crop",
             "https://images.unsplash.com/photo-1478760329108-5c3ed9d495a0?q=80&w=1920&auto=format&fit=crop",
@@ -261,26 +342,29 @@
             "https://images.unsplash.com/photo-1451187580459-43490279c0fa?q=80&w=1920&auto=format&fit=crop"
         ];
         let currentWallpaperIdx = 0;
-        function changeWallpaper() {
+        window.changeWallpaper = function() {
             currentWallpaperIdx = (currentWallpaperIdx + 1) % wallpapers.length;
             document.body.style.backgroundImage = `url('${wallpapers[currentWallpaperIdx]}')`;
         }
 
-        // 2. 바탕화면 UI 렌더링 & 이름 변경 기능 (문제점 2 반영)
-        function renderDesktop() {
+        window.renderDesktop = function() {
             const desktop = document.getElementById('desktop');
             desktop.innerHTML = `
                 <div class="desktop-icon" onclick="openWindow('upload-window')">
                     <div class="icon-img">⚙️</div>
-                    <div class="icon-text">DB Upload</div>
+                    <div class="icon-text">DB 업로드</div>
                 </div>
                 <div class="desktop-icon" onclick="openStats()">
                     <div class="icon-img">📊</div>
-                    <div class="icon-text">Statistics</div>
+                    <div class="icon-text">오답 통계</div>
+                </div>
+                <div class="desktop-icon" onclick="openImageManager()">
+                    <div class="icon-img">🖼️</div>
+                    <div class="icon-text">사진 추가</div>
                 </div>
             `;
             
-            const categories = [...new Set(problemDB.map(p => p.category))];
+            const categories = [...new Set(window.problemDB.map(p => p.category))];
             categories.forEach(category => {
                 desktop.innerHTML += `
                     <div class="desktop-icon" onclick="startQuizByCategory('${category}')">
@@ -294,63 +378,91 @@
             });
         }
 
-        // 카테고리(제목) 변경 로직
-        function renameCategory(oldName) {
+        window.renameCategory = async function(oldName) {
             const newName = prompt(`'${oldName}'의 새 이름을 입력하세요:`, oldName);
             if (newName && newName.trim() !== "" && newName !== oldName) {
-                // DB 업데이트
-                problemDB.forEach(p => { if (p.category === oldName) p.category = newName.trim(); });
-                // 진행상황 키 업데이트
-                if (progressDB[oldName] !== undefined) {
-                    progressDB[newName.trim()] = progressDB[oldName];
-                    delete progressDB[oldName];
+                const batch = writeBatch(db);
+                window.problemDB.forEach(p => {
+                    if (p.category === oldName) {
+                        p.category = newName.trim();
+                        batch.update(doc(db, "problems", p.id), { category: p.category });
+                    }
+                });
+
+                if (window.progressDB[oldName] !== undefined) {
+                    window.progressDB[newName.trim()] = window.progressDB[oldName];
+                    delete window.progressDB[oldName];
+                    window.saveProgress();
                 }
-                saveDB();
-                saveProgress();
-                renderDesktop();
+                
+                await batch.commit();
+                window.renderDesktop();
             }
         }
 
-        // 윈도우 창 제어 및 시계
-        function openWindow(id) { document.querySelectorAll('.window').forEach(w => w.classList.remove('active')); document.getElementById(id).classList.add('active'); }
-        function closeWindow(id) { document.getElementById(id).classList.remove('active'); }
+        window.openWindow = function(id) { document.querySelectorAll('.window').forEach(w => w.classList.remove('active')); document.getElementById(id).classList.add('active'); }
+        window.closeWindow = function(id) { document.getElementById(id).classList.remove('active'); }
+        
         setInterval(() => {
             const now = new Date();
             document.getElementById('clock').innerText = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
         }, 1000);
 
-        // 파일 업로드
-        document.getElementById('file-input').addEventListener('change', function(e) {
+        // 파일 업로드 (Firestore Batch 활용)
+        document.getElementById('file-input').addEventListener('change', async function(e) {
             const file = e.target.files[0];
             if (!file) return;
             const fileNameCategory = file.name.replace(/\.[^/.]+$/, "");
             const reader = new FileReader();
-            reader.onload = function(event) {
+            
+            reader.onload = async function(event) {
                 try {
                     const uploadedData = JSON.parse(event.target.result);
+                    const batch = writeBatch(db);
+                    
+                    document.getElementById('upload-window').querySelector('.window-content').innerHTML = '<p>데이터를 클라우드에 저장하는 중입니다...</p>';
+
                     uploadedData.forEach(item => {
                         if (item.question && item.answer) {
-                            problemDB.push({ category: fileNameCategory, question: item.question, answer: String(item.answer).trim(), wrongCount: item.wrongCount || 0 });
+                            const newDocRef = doc(collection(db, "problems"));
+                            const newObj = {
+                                category: fileNameCategory, 
+                                question: item.question, 
+                                answer: String(item.answer).trim(), 
+                                wrongCount: item.wrongCount || 0 
+                            };
+                            batch.set(newDocRef, newObj);
+                            window.problemDB.push({ id: newDocRef.id, ...newObj });
                         }
                     });
-                    saveDB(); renderDesktop();
-                    alert(`업로드 성공! [${fileNameCategory}] 항목이 추가되었습니다.`);
-                    document.getElementById('file-input').value = "";
-                    closeWindow('upload-window');
-                } catch (error) { alert("JSON 파싱 오류! 데이터 형식을 확인해주세요."); }
+                    
+                    await batch.commit();
+                    window.renderDesktop();
+                    alert(`업로드 성공!`);
+                    window.closeWindow('upload-window');
+                    
+                    // 업로드 윈도우 내용 원상복구
+                    document.getElementById('upload-window').querySelector('.window-content').innerHTML = `
+                        <p style="font-weight:bold; margin-bottom:10px;">JSON 파일을 업로드 하세요.</p>
+                        <input type="file" id="file-input" accept=".json, .txt">
+                        <button class="btn" onclick="closeWindow('upload-window')" style="background:#888; width:100%;">닫기</button>
+                    `;
+                } catch (error) { 
+                    alert("업로드 처리 중 오류 발생!"); 
+                    console.error(error);
+                }
             };
             reader.readAsText(file);
         });
 
-        // 통계 화면
-        function openStats() {
+        window.openStats = function() {
             const statsList = document.getElementById('stats-list');
             statsList.innerHTML = '';
-            const categories = [...new Set(problemDB.map(p => p.category))];
+            const categories = [...new Set(window.problemDB.map(p => p.category))];
             if (categories.length === 0) { statsList.innerHTML = '<p style="color:#666;">데이터가 없습니다.</p>'; } 
             else {
                 categories.forEach(cat => {
-                    const categoryProblems = problemDB.filter(p => p.category === cat);
+                    const categoryProblems = window.problemDB.filter(p => p.category === cat);
                     const wrongCountSum = categoryProblems.filter(p => p.wrongCount > 0).length;
                     statsList.innerHTML += `
                         <div class="stat-group">
@@ -359,55 +471,170 @@
                         </div>`;
                 });
             }
-            openWindow('stats-window');
+            window.openWindow('stats-window');
         }
 
-        // ==================================================
-        // 3. 퀴즈 실행 로직 (문제점 1, 3 반영: 순서 고정 및 진행상황 저장)
-        // ==================================================
+        /* 사진 추가 관리자 */
+        window.openImageManager = function() {
+            const content = document.getElementById('image-window-content');
+            const categories = [...new Set(window.problemDB.map(p => p.category))];
+            
+            let html = `<p style="font-weight:bold; margin-bottom:15px; font-size:16px;">사진을 추가할 문제 묶음(카테고리)을 선택하세요.</p>`;
+            if(categories.length === 0) {
+                html += `<p style="color:#666;">업로드된 문제가 없습니다.</p>`;
+            } else {
+                html += `<div style="border-top:2px solid #eee;">`;
+                categories.forEach(cat => {
+                    html += `
+                        <div class="list-item" onclick="showImageQuestions('${cat}')">
+                            <span style="font-size:20px;">📁</span>
+                            <span class="list-title">${cat}</span>
+                        </div>
+                    `;
+                });
+                html += `</div>`;
+            }
+            content.innerHTML = html;
+            window.openWindow('image-window');
+        }
+
+        window.showImageQuestions = function(category) {
+            const content = document.getElementById('image-window-content');
+            let html = `
+                <button class="btn" style="background:#eee; color:#333; margin-top:0; margin-bottom:15px;" onclick="openImageManager()">⬅️ 카테고리 목록으로 돌아가기</button>
+                <p style="font-weight:bold; margin-bottom:15px; font-size:15px;">[${category}] 사진을 추가할 문제를 클릭하세요.</p>
+                <div style="border-top:2px solid #eee;">
+            `;
+            window.problemDB.forEach((p, globalIdx) => {
+                if (p.category === category) {
+                    const statusClass = p.image ? 'has-img' : '';
+                    const statusText = p.image ? '사진 있음' : '사진 없음';
+                    const previewText = p.question.split('/')[0].substring(0, 30) + '...';
+                    html += `
+                        <div class="list-item" onclick="openImageUploader(${globalIdx})">
+                            <span class="img-status ${statusClass}">${statusText}</span>
+                            <div style="display:flex; flex-direction:column; gap:5px;">
+                                <span class="list-preview">${previewText}</span>
+                            </div>
+                        </div>
+                    `;
+                }
+            });
+            html += `</div>`;
+            content.innerHTML = html;
+        }
+
+        window.openImageUploader = function(globalIdx) {
+            const content = document.getElementById('image-window-content');
+            const p = window.problemDB[globalIdx];
+            const parsedQuestion = parseQuestionAndOptions(p.question).mainQuestion;
+            
+            let html = `
+                <button class="btn" style="background:#eee; color:#333; margin-top:0; margin-bottom:15px;" onclick="showImageQuestions('${p.category}')">⬅️ 문제 목록으로 돌아가기</button>
+                <div style="background:#f9f9f9; padding:15px; border-radius:8px; margin-bottom:20px;">
+                    <span style="font-size:12px; color:#888;">대상 문제</span><br>
+                    <strong>${parsedQuestion}</strong>
+                </div>
+            `;
+            if (p.image) {
+                html += `
+                    <div style="text-align:center; background:#eee; padding:10px; border-radius:8px; margin-bottom:10px;">
+                        <img src="${p.image}" style="max-width:100%; max-height:200px; border-radius:4px;"><br>
+                        <button class="btn" style="background:#e81123;" onclick="deleteImage(${globalIdx})">🗑️ 현재 사진 삭제</button>
+                    </div>
+                `;
+            } else {
+                html += `<p style="color:#666; font-size:14px; margin-bottom:10px;">등록된 사진이 없습니다.</p>`;
+            }
+            html += `<input type="file" accept="image/*" onchange="uploadAndCompressImage(event, ${globalIdx})">`;
+            content.innerHTML = html;
+        }
+
+        window.uploadAndCompressImage = function(event, globalIdx) {
+            const file = event.target.files[0];
+            if(!file) return;
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const img = new Image();
+                img.onload = async function() {
+                    const canvas = document.createElement('canvas');
+                    const MAX_WIDTH = 800;
+                    let width = img.width;
+                    let height = img.height;
+                    if (width > MAX_WIDTH) { height *= MAX_WIDTH / width; width = MAX_WIDTH; }
+                    canvas.width = width; canvas.height = height;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0, width, height);
+                    
+                    const base64Img = canvas.toDataURL('image/jpeg', 0.7);
+                    window.problemDB[globalIdx].image = base64Img; 
+                    
+                    // Firebase 업데이트
+                    await updateDoc(doc(db, "problems", window.problemDB[globalIdx].id), { image: base64Img });
+                    
+                    window.openImageUploader(globalIdx);
+                }
+                img.src = e.target.result;
+            };
+            reader.readAsDataURL(file);
+        }
+
+        window.deleteImage = async function(globalIdx) {
+            if(confirm("정말 이 사진을 삭제하시겠습니까?")) {
+                const targetId = window.problemDB[globalIdx].id;
+                delete window.problemDB[globalIdx].image;
+                
+                await updateDoc(doc(db, "problems", targetId), { image: deleteField() });
+                window.openImageUploader(globalIdx);
+            }
+        }
+
+        /* 퀴즈 실행 로직 */
         let currentQuizSession = [];
         let currentQuestionIndex = 0;
         let isAnswerSubmitted = false;
         let currentCategoryName = "";
         let isTop120Mode = false;
 
-        function startTop120Review() {
+        window.startTop120Review = function() {
             isTop120Mode = true;
-            currentQuizSession = [...problemDB].filter(p => p.wrongCount > 0).sort((a, b) => b.wrongCount - a.wrongCount).slice(0, 120);
-            if (currentQuizSession.length === 0) return alert('틀린 문제가 없습니다! 완벽합니다.');
-            currentCategoryName = "TOP_120_REVIEW"; // 저장용 임시 키
-            currentQuestionIndex = progressDB[currentCategoryName] || 0;
+            currentQuizSession = [...window.problemDB].filter(p => p.wrongCount > 0).sort((a, b) => b.wrongCount - a.wrongCount).slice(0, 120);
+            if (currentQuizSession.length === 0) return alert('틀린 문제가 없습니다!');
+            currentCategoryName = "TOP_120_REVIEW";
+            currentQuestionIndex = window.progressDB[currentCategoryName] || 0;
             if (currentQuestionIndex >= currentQuizSession.length) currentQuestionIndex = 0;
-            closeWindow('stats-window');
+            window.closeWindow('stats-window');
             document.getElementById('quiz-fullscreen').classList.add('active');
             renderQuestion();
         }
 
-        function startQuizByCategory(category) {
+        window.startQuizByCategory = function(category) {
             isTop120Mode = false;
             currentCategoryName = category;
-            currentQuizSession = problemDB.filter(p => p.category === category);
+            currentQuizSession = window.problemDB.filter(p => p.category === category);
             if (currentQuizSession.length === 0) return alert('문제가 없습니다.');
             
-            // 문제점 3 수정: 랜덤 섞기(Math.random) 제거. 기존 JSON 순서(1,2,3..)대로 진행
-            
-            // 문제점 1 수정: 진행상황 불러오기
-            currentQuestionIndex = progressDB[category] || 0;
-            
-            // 만약 이미 다 푼 상태라면 처음부터 다시 시작
+            currentQuestionIndex = window.progressDB[category] || 0;
             if(currentQuestionIndex >= currentQuizSession.length) {
                 currentQuestionIndex = 0;
-            } else if (currentQuestionIndex > 0) {
-                // 시작 전 가볍게 알림 (선택사항)
-                console.log(`${category} - ${currentQuestionIndex+1}번 문제부터 이어서 시작합니다.`);
             }
-
             document.getElementById('quiz-fullscreen').classList.add('active');
             renderQuestion();
         }
 
-        function quitQuiz() {
+        window.quitQuiz = function() {
             document.getElementById('quiz-fullscreen').classList.remove('active');
+        }
+
+        window.resetProgress = function() {
+            const confirmReset = confirm("정말 이 단원의 학습을 새로 시작하시겠습니까?\n저장된 학습 진도가 모두 초기화되며 1번 문제부터 다시 풀게 됩니다.");
+            if (confirmReset) {
+                delete window.progressDB[currentCategoryName];
+                window.saveProgress();
+                
+                currentQuestionIndex = 0;
+                renderQuestion();
+            }
         }
 
         function parseQuestionAndOptions(fullText) {
@@ -436,7 +663,6 @@
             document.getElementById('q-current-num').innerText = currentQuestionIndex + 1;
             document.getElementById('q-total-num').innerText = currentQuizSession.length;
             
-            // 진행률 바
             const segmentContainer = document.getElementById('progress-segments');
             segmentContainer.innerHTML = '';
             const progressRatio = (currentQuestionIndex + 1) / currentQuizSession.length;
@@ -451,33 +677,37 @@
             document.getElementById('quiz-category').innerText = catTitle;
             document.getElementById('quiz-question-text').innerText = parsed.mainQuestion;
 
+            const imgContainer = document.getElementById('quiz-image-container');
+            const imgElement = document.getElementById('quiz-image');
+            if (q.image) {
+                imgElement.src = q.image;
+                imgContainer.style.display = 'block'; 
+            } else {
+                imgElement.src = "";
+                imgContainer.style.display = 'none'; 
+            }
+
             const grid = document.getElementById('quiz-options-grid');
             grid.innerHTML = '';
             
             parsed.options.forEach((optText, idx) => {
                 const btn = document.createElement('div');
                 btn.className = 'option-btn';
-                // 데이터 속성에 원본 텍스트 및 번호 저장
                 btn.dataset.text = optText;
                 btn.dataset.num = idx + 1;
                 btn.innerHTML = `<span class="option-number">${idx+1}</span> <span>${optText}</span>`;
-                
                 btn.onclick = () => submitAnswer(btn, optText, q.answer, idx + 1);
                 grid.appendChild(btn);
             });
         }
 
-        // ==================================================
-        // 4. 시각적 피드백 로직 (문제점 4 반영: Alert 제거)
-        // ==================================================
         function submitAnswer(btnElement, selectedText, correctAnswer, selectedNumber) {
-            if (isAnswerSubmitted) return; // 중복 클릭 방지
+            if (isAnswerSubmitted) return;
             isAnswerSubmitted = true;
 
             const currentProblem = currentQuizSession[currentQuestionIndex];
             const allBtns = document.querySelectorAll('.option-btn');
             
-            // 정답 확인용 함수 (기호 포함여부, 번호, 텍스트 일치)
             const checkIsCorrect = (text, num) => {
                 const symbols = ['①','②','③','④'];
                 return correctAnswer.includes(text) || correctAnswer.includes(String(num)) || correctAnswer.includes(symbols[num-1]);
@@ -485,29 +715,23 @@
 
             const isCorrect = checkIsCorrect(selectedText, selectedNumber);
             const feedbackEl = document.getElementById('quiz-feedback-text');
-
-            // 모든 버튼 비활성화 시각 효과
             allBtns.forEach(b => b.classList.add('disabled'));
 
             if (isCorrect) {
-                // 정답 처리
                 btnElement.classList.add('correct');
                 btnElement.querySelector('.option-number').innerText = '✓';
-                
                 feedbackEl.innerText = "잘 하셨어요! 완벽합니다.";
                 feedbackEl.className = 'feedback-text correct';
             } else {
-                // 오답 처리
                 btnElement.classList.add('incorrect');
                 btnElement.querySelector('.option-number').innerText = '✕';
-                
                 feedbackEl.innerText = "걱정하지 마세요, 아직 배우고 있잖아요!";
                 feedbackEl.className = 'feedback-text incorrect';
                 
+                // 오답 처리 시 Firebase 업데이트
                 currentProblem.wrongCount++;
-                saveDB();
+                updateDoc(doc(db, "problems", currentProblem.id), { wrongCount: currentProblem.wrongCount });
 
-                // 실제 정답 버튼 찾아서 초록색 점선 표시
                 allBtns.forEach(b => {
                     if (checkIsCorrect(b.dataset.text, Number(b.dataset.num))) {
                         b.classList.add('correct');
@@ -515,39 +739,29 @@
                     }
                 });
             }
-
-            // 다음 진행 버튼 표시
             document.getElementById('next-btn').style.display = 'block';
         }
 
-        // 엔터키를 누르면 다음 문제로 이동
         document.addEventListener('keydown', function(event) {
             if (event.key === 'Enter' && isAnswerSubmitted && document.getElementById('quiz-fullscreen').classList.contains('active')) {
-                goToNextQuestion();
+                window.goToNextQuestion();
             }
         });
 
-        // 다음 문제로 넘어가기 & 진행상황 저장
-        function goToNextQuestion() {
+        window.goToNextQuestion = function() {
             currentQuestionIndex++;
-            
-            // 진행상황(Progress) 업데이트
-            progressDB[currentCategoryName] = currentQuestionIndex;
-            saveProgress();
+            window.progressDB[currentCategoryName] = currentQuestionIndex;
+            window.saveProgress(); // Firebase 진행률 업데이트
 
             if (currentQuestionIndex < currentQuizSession.length) {
                 renderQuestion();
             } else {
-                // 퀴즈 완료 시 진행상황 초기화
-                delete progressDB[currentCategoryName];
-                saveProgress();
+                delete window.progressDB[currentCategoryName];
+                window.saveProgress();
                 alert("🎉 퀴즈 세션이 모두 완료되었습니다!");
-                quitQuiz();
+                window.quitQuiz();
             }
         }
-
-        // 초기 실행
-        renderDesktop();
     </script>
 </body>
 </html>
