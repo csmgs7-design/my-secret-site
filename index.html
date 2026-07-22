@@ -312,6 +312,9 @@
                     window.problemDB.push({ id: document.id, ...document.data() });
                 });
                 
+                // 순서(order) 기준 오름차순 정렬 추가 (순서 뒤죽박죽 버그 해결)
+                window.problemDB.sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+                
                 window.renderDesktop();
             } catch (error) {
                 console.error("Firebase 로딩 에러:", error);
@@ -422,14 +425,15 @@
                     
                     document.getElementById('upload-window').querySelector('.window-content').innerHTML = '<p>데이터를 클라우드에 저장하는 중입니다...</p>';
 
-                    uploadedData.forEach(item => {
+                    uploadedData.forEach((item, index) => {
                         if (item.question && item.answer) {
                             const newDocRef = doc(collection(db, "problems"));
                             const newObj = {
                                 category: fileNameCategory, 
                                 question: item.question, 
                                 answer: String(item.answer).trim(), 
-                                wrongCount: item.wrongCount || 0 
+                                wrongCount: item.wrongCount || 0,
+                                order: item.order !== undefined ? item.order : index // 문제 번환 순서 저장
                             };
                             batch.set(newDocRef, newObj);
                             window.problemDB.push({ id: newDocRef.id, ...newObj });
@@ -437,6 +441,10 @@
                     });
                     
                     await batch.commit();
+                    
+                    // 메모리 DB 정렬
+                    window.problemDB.sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+                    
                     window.renderDesktop();
                     alert(`업로드 성공!`);
                     window.closeWindow('upload-window');
