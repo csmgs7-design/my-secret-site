@@ -1,0 +1,553 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quizlet 스타일 문제 풀이 앱 (개선판)</title>
+    <style>
+        /* ==================================================
+           CSS: 초기화 및 기본 UI
+           ================================================== */
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', 'Malgun Gothic', Tahoma, sans-serif;
+        }
+
+        body {
+            background-image: url('https://images.unsplash.com/photo-1617042375876-a13e36732a04?q=80&w=1920&auto=format&fit=crop');
+            background-repeat: no-repeat;
+            background-position: center center;
+            background-attachment: fixed;
+            background-size: cover;
+            background-color: #0078D7;
+            height: 100vh;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            transition: background-image 0.5s ease;
+        }
+
+        /* ==================================================
+           바탕화면 & 작업표시줄
+           ================================================== */
+        #desktop {
+            flex: 1;
+            padding: 15px;
+            display: flex;
+            flex-direction: column;
+            flex-wrap: wrap;
+            align-content: flex-start;
+            gap: 20px;
+        }
+
+        .desktop-icon {
+            width: 90px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            cursor: pointer;
+            padding: 10px 5px;
+            border-radius: 5px;
+            color: white;
+            text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.9);
+            transition: background 0.2s;
+            position: relative;
+        }
+        .desktop-icon:hover { background: rgba(255, 255, 255, 0.2); }
+        .desktop-icon .icon-img { font-size: 45px; margin-bottom: 5px; filter: drop-shadow(2px 2px 2px rgba(0,0,0,0.5)); }
+        .desktop-icon .icon-text { font-size: 13px; text-align: center; word-break: keep-all; font-weight: 500; display: flex; align-items: center; justify-content: center; gap: 5px;}
+        
+        /* 이름 변경 연필 아이콘 */
+        .rename-btn { font-size: 11px; cursor: pointer; opacity: 0.7; transition: 0.2s; }
+        .rename-btn:hover { opacity: 1; transform: scale(1.2); }
+
+        #taskbar {
+            height: 50px;
+            background-color: rgba(10, 10, 10, 0.85);
+            backdrop-filter: blur(10px);
+            display: flex;
+            align-items: center;
+            padding: 0 15px;
+            color: white;
+            z-index: 100;
+        }
+        .taskbar-btn { font-size: 20px; cursor: pointer; padding: 8px 15px; border-radius: 4px; margin-right: 10px; transition: 0.2s; display: flex; align-items: center; gap: 8px; }
+        .taskbar-btn:hover { background: rgba(255, 255, 255, 0.15); }
+        .taskbar-btn.text-btn { font-size: 14px; }
+        .clock { margin-left: auto; font-size: 13px; font-weight: bold; }
+
+        /* ==================================================
+           윈도우 창 공통 스타일
+           ================================================== */
+        .window {
+            position: absolute;
+            top: 50%; left: 50%; transform: translate(-50%, -50%);
+            width: 90%; max-width: 550px; background: #ffffff; border-radius: 8px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.6); display: none; flex-direction: column;
+            z-index: 50; overflow: hidden; animation: pop 0.2s ease-out;
+        }
+        .window.active { display: flex; }
+        @keyframes pop { from { transform: translate(-50%, -45%); opacity: 0; } to { transform: translate(-50%, -50%); opacity: 1; } }
+        
+        .title-bar { background: #f3f3f3; padding: 12px 15px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #ddd; }
+        .title-bar .title { font-size: 15px; font-weight: bold; color: #333; }
+        .close-btn { background: transparent; border: none; font-size: 18px; cursor: pointer; border-radius: 4px; width: 30px; height: 30px; transition: 0.2s; }
+        .close-btn:hover { background: #e81123; color: white; }
+        
+        .window-content { padding: 25px; flex: 1; overflow-y: auto; max-height: 70vh; }
+        button.btn { padding: 10px 20px; background: #0078D7; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; margin-top: 15px; font-weight: bold; transition: 0.2s; }
+        button.btn:hover { background: #005a9e; }
+        input[type="file"] { width: 100%; padding: 12px; margin-top: 10px; border: 1px dashed #aaa; border-radius: 6px; background: #fafafa; }
+
+        /* 통계 UI */
+        .stat-group { background: #f8f9fa; border: 1px solid #dee2e6; padding: 15px; border-radius: 8px; margin-bottom: 15px; display: flex; justify-content: space-between; align-items: center; }
+        .stat-group-title { font-weight: bold; font-size: 16px; color: #333; }
+        .stat-group-count { color: #e81123; font-weight: bold; font-size: 14px; }
+        .top-120-btn { width: 100%; background: #d83b01; margin-bottom: 20px; font-size: 16px; padding: 15px;}
+        .top-120-btn:hover { background: #a82e01; }
+
+        /* ==================================================
+           퀴즈 전체화면 UI (Quizlet 스타일 피드백 적용)
+           ================================================== */
+        #quiz-fullscreen {
+            position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+            background-color: #0a092d; z-index: 1000; display: none; flex-direction: column;
+            align-items: center; padding: 40px 20px; color: white; overflow-y: auto;
+        }
+        #quiz-fullscreen.active { display: flex; }
+
+        /* 상단 진행률 바 */
+        .progress-header { width: 100%; max-width: 900px; display: flex; align-items: center; margin-bottom: 30px; gap: 15px; }
+        .progress-circle { background: #23b26d; width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 16px; }
+        .progress-bar-container { flex: 1; display: flex; gap: 5px; }
+        .progress-segment { flex: 1; height: 8px; background: #2e3856; border-radius: 4px; }
+        .progress-segment.filled { background: #4255ff; }
+        .progress-total { background: #45537d; padding: 8px 12px; border-radius: 20px; font-size: 14px; font-weight: bold; }
+
+        /* 문제 카드 */
+        .quiz-card {
+            background-color: #2e3856; width: 100%; max-width: 900px; border-radius: 12px;
+            padding: 40px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); display: flex; flex-direction: column; position: relative;
+        }
+        
+        .question-category { font-size: 14px; color: #a0aabf; margin-bottom: 20px; }
+        .question-text { font-size: 24px; font-weight: 600; line-height: 1.5; margin-bottom: 20px; word-break: keep-all; }
+        
+        /* 피드백 텍스트 영역 */
+        .feedback-text { font-size: 16px; font-weight: bold; margin-bottom: 20px; height: 24px; }
+        .feedback-text.incorrect { color: #ff7873; }
+        .feedback-text.correct { color: #23b26d; }
+
+        /* 4지 선다 버튼 */
+        .options-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+        .option-btn {
+            background-color: #2e3856; color: #ffffff; border: 2px solid #45537d; border-radius: 8px;
+            padding: 20px; font-size: 16px; text-align: left; cursor: pointer; transition: all 0.2s;
+            display: flex; align-items: center; line-height: 1.4;
+        }
+        .option-btn:hover:not(.disabled) { border-color: #ffffff; background-color: #3a4660; }
+        .option-btn.disabled { cursor: default; }
+        
+        .option-number { font-weight: bold; color: #a0aabf; margin-right: 15px; font-size: 18px; width: 24px; text-align: center; }
+        
+        /* 퀴즐렛 스타일 정답/오답 디자인 */
+        .option-btn.correct { border: 2px dashed #23b26d !important; background-color: rgba(35, 178, 109, 0.1) !important; }
+        .option-btn.correct .option-number { color: #23b26d; }
+        
+        .option-btn.incorrect { border: 2px solid #ff7873 !important; background-color: rgba(255, 120, 115, 0.1) !important; }
+        .option-btn.incorrect .option-number { color: #ff7873; }
+
+        .quiz-controls { max-width: 900px; width: 100%; display: flex; justify-content: space-between; align-items: center; margin-top: 20px; }
+        
+        .quit-btn { background: transparent; color: #a0aabf; border: none; font-size: 16px; cursor: pointer; padding: 10px 0; }
+        .quit-btn:hover { color: white; text-decoration: underline; }
+
+        .next-btn {
+            background: #4255ff; color: white; border: none; padding: 12px 30px; font-size: 16px; font-weight: bold;
+            border-radius: 8px; cursor: pointer; display: none; transition: 0.2s;
+        }
+        .next-btn:hover { background: #3244d6; }
+
+        @media (max-width: 768px) {
+            .options-grid { grid-template-columns: 1fr; }
+            .quiz-card { padding: 20px; }
+            .question-text { font-size: 18px; }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- 바탕화면 -->
+    <div id="desktop"></div>
+
+    <!-- 작업표시줄 -->
+    <div id="taskbar">
+        <div class="taskbar-btn" title="시작">🪟</div>
+        <div class="taskbar-btn text-btn" onclick="changeWallpaper()">🎨 배경화면 변경</div>
+        <div class="clock" id="clock">00:00 AM</div>
+    </div>
+
+    <!-- Window: DB 업로드 -->
+    <div id="upload-window" class="window">
+        <div class="title-bar">
+            <div class="title">📁 DB Upload</div>
+            <button class="close-btn" onclick="closeWindow('upload-window')">✕</button>
+        </div>
+        <div class="window-content">
+            <p style="font-weight:bold; margin-bottom:10px;">JSON 파일을 업로드 하세요.</p>
+            <p style="font-size: 13px; color: #666;">※ 업로드하는 파일의 이름이 <strong>카테고리명(문제 제목)</strong>으로 자동 지정됩니다.</p>
+            <input type="file" id="file-input" accept=".json, .txt">
+            <button class="btn" onclick="closeWindow('upload-window')" style="background:#888; width:100%;">닫기</button>
+        </div>
+    </div>
+
+    <!-- Window: 통계 -->
+    <div id="stats-window" class="window">
+        <div class="title-bar">
+            <div class="title">📊 Statistics & Review</div>
+            <button class="close-btn" onclick="closeWindow('stats-window')">✕</button>
+        </div>
+        <div class="window-content">
+            <button class="btn top-120-btn" onclick="startTop120Review()">🔥 틀린 문제 TOP 120 몰아보기</button>
+            <p style="font-weight:bold; margin-bottom:15px; border-bottom:2px solid #eee; padding-bottom:10px;">단원별 오답 현황</p>
+            <div id="stats-list"></div>
+            <button class="btn" onclick="closeWindow('stats-window')" style="background:#888; width:100%;">닫기</button>
+        </div>
+    </div>
+
+    <!-- 퀴즈 전체화면 -->
+    <div id="quiz-fullscreen">
+        <div class="progress-header">
+            <div class="progress-circle" id="q-current-num">1</div>
+            <div class="progress-bar-container" id="progress-segments"></div>
+            <div class="progress-total" id="q-total-num">100</div>
+        </div>
+
+        <div class="quiz-card">
+            <div class="question-category" id="quiz-category">단원명</div>
+            <div class="question-text" id="quiz-question-text">문제가 여기에 표시됩니다.</div>
+            
+            <!-- 피드백 텍스트 (정답/오답 시 표시) -->
+            <div class="feedback-text" id="quiz-feedback-text"></div>
+            
+            <div class="options-grid" id="quiz-options-grid"></div>
+        </div>
+        
+        <div class="quiz-controls">
+            <button class="quit-btn" onclick="quitQuiz()">⚑ 퀴즈 종료 (진행상황 자동저장)</button>
+            <button class="next-btn" id="next-btn" onclick="goToNextQuestion()">다음 문제로 이동 (Enter) ➔</button>
+        </div>
+    </div>
+
+    <script>
+        /* ==================================================
+           JavaScript: 데이터 관리, UI 상태, 핵심 로직
+           ================================================== */
+
+        // 1. 데이터 및 진행상황 초기화 (문제점 1 반영)
+        let problemDB = JSON.parse(localStorage.getItem('myQuizDB')) || [];
+        let progressDB = JSON.parse(localStorage.getItem('myQuizProgress')) || {};
+
+        function saveDB() { localStorage.setItem('myQuizDB', JSON.stringify(problemDB)); }
+        function saveProgress() { localStorage.setItem('myQuizProgress', JSON.stringify(progressDB)); }
+
+        // 배경화면 변경
+        const wallpapers = [
+            "https://images.unsplash.com/photo-1617042375876-a13e36732a04?q=80&w=1920&auto=format&fit=crop",
+            "https://images.unsplash.com/photo-1478760329108-5c3ed9d495a0?q=80&w=1920&auto=format&fit=crop",
+            "https://images.unsplash.com/photo-1506744626753-eda8151a1571?q=80&w=1920&auto=format&fit=crop",
+            "https://images.unsplash.com/photo-1451187580459-43490279c0fa?q=80&w=1920&auto=format&fit=crop"
+        ];
+        let currentWallpaperIdx = 0;
+        function changeWallpaper() {
+            currentWallpaperIdx = (currentWallpaperIdx + 1) % wallpapers.length;
+            document.body.style.backgroundImage = `url('${wallpapers[currentWallpaperIdx]}')`;
+        }
+
+        // 2. 바탕화면 UI 렌더링 & 이름 변경 기능 (문제점 2 반영)
+        function renderDesktop() {
+            const desktop = document.getElementById('desktop');
+            desktop.innerHTML = `
+                <div class="desktop-icon" onclick="openWindow('upload-window')">
+                    <div class="icon-img">⚙️</div>
+                    <div class="icon-text">DB Upload</div>
+                </div>
+                <div class="desktop-icon" onclick="openStats()">
+                    <div class="icon-img">📊</div>
+                    <div class="icon-text">Statistics</div>
+                </div>
+            `;
+            
+            const categories = [...new Set(problemDB.map(p => p.category))];
+            categories.forEach(category => {
+                desktop.innerHTML += `
+                    <div class="desktop-icon" onclick="startQuizByCategory('${category}')">
+                        <div class="icon-img">📁</div>
+                        <div class="icon-text">
+                            ${category}
+                            <span class="rename-btn" title="이름 변경" onclick="event.stopPropagation(); renameCategory('${category}')">✏️</span>
+                        </div>
+                    </div>
+                `;
+            });
+        }
+
+        // 카테고리(제목) 변경 로직
+        function renameCategory(oldName) {
+            const newName = prompt(`'${oldName}'의 새 이름을 입력하세요:`, oldName);
+            if (newName && newName.trim() !== "" && newName !== oldName) {
+                // DB 업데이트
+                problemDB.forEach(p => { if (p.category === oldName) p.category = newName.trim(); });
+                // 진행상황 키 업데이트
+                if (progressDB[oldName] !== undefined) {
+                    progressDB[newName.trim()] = progressDB[oldName];
+                    delete progressDB[oldName];
+                }
+                saveDB();
+                saveProgress();
+                renderDesktop();
+            }
+        }
+
+        // 윈도우 창 제어 및 시계
+        function openWindow(id) { document.querySelectorAll('.window').forEach(w => w.classList.remove('active')); document.getElementById(id).classList.add('active'); }
+        function closeWindow(id) { document.getElementById(id).classList.remove('active'); }
+        setInterval(() => {
+            const now = new Date();
+            document.getElementById('clock').innerText = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+        }, 1000);
+
+        // 파일 업로드
+        document.getElementById('file-input').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            const fileNameCategory = file.name.replace(/\.[^/.]+$/, "");
+            const reader = new FileReader();
+            reader.onload = function(event) {
+                try {
+                    const uploadedData = JSON.parse(event.target.result);
+                    uploadedData.forEach(item => {
+                        if (item.question && item.answer) {
+                            problemDB.push({ category: fileNameCategory, question: item.question, answer: String(item.answer).trim(), wrongCount: item.wrongCount || 0 });
+                        }
+                    });
+                    saveDB(); renderDesktop();
+                    alert(`업로드 성공! [${fileNameCategory}] 항목이 추가되었습니다.`);
+                    document.getElementById('file-input').value = "";
+                    closeWindow('upload-window');
+                } catch (error) { alert("JSON 파싱 오류! 데이터 형식을 확인해주세요."); }
+            };
+            reader.readAsText(file);
+        });
+
+        // 통계 화면
+        function openStats() {
+            const statsList = document.getElementById('stats-list');
+            statsList.innerHTML = '';
+            const categories = [...new Set(problemDB.map(p => p.category))];
+            if (categories.length === 0) { statsList.innerHTML = '<p style="color:#666;">데이터가 없습니다.</p>'; } 
+            else {
+                categories.forEach(cat => {
+                    const categoryProblems = problemDB.filter(p => p.category === cat);
+                    const wrongCountSum = categoryProblems.filter(p => p.wrongCount > 0).length;
+                    statsList.innerHTML += `
+                        <div class="stat-group">
+                            <div class="stat-group-title">📁 ${cat}</div>
+                            <div class="stat-group-count">오답 문항: ${wrongCountSum}개 / 총 ${categoryProblems.length}개</div>
+                        </div>`;
+                });
+            }
+            openWindow('stats-window');
+        }
+
+        // ==================================================
+        // 3. 퀴즈 실행 로직 (문제점 1, 3 반영: 순서 고정 및 진행상황 저장)
+        // ==================================================
+        let currentQuizSession = [];
+        let currentQuestionIndex = 0;
+        let isAnswerSubmitted = false;
+        let currentCategoryName = "";
+        let isTop120Mode = false;
+
+        function startTop120Review() {
+            isTop120Mode = true;
+            currentQuizSession = [...problemDB].filter(p => p.wrongCount > 0).sort((a, b) => b.wrongCount - a.wrongCount).slice(0, 120);
+            if (currentQuizSession.length === 0) return alert('틀린 문제가 없습니다! 완벽합니다.');
+            currentCategoryName = "TOP_120_REVIEW"; // 저장용 임시 키
+            currentQuestionIndex = progressDB[currentCategoryName] || 0;
+            if (currentQuestionIndex >= currentQuizSession.length) currentQuestionIndex = 0;
+            closeWindow('stats-window');
+            document.getElementById('quiz-fullscreen').classList.add('active');
+            renderQuestion();
+        }
+
+        function startQuizByCategory(category) {
+            isTop120Mode = false;
+            currentCategoryName = category;
+            currentQuizSession = problemDB.filter(p => p.category === category);
+            if (currentQuizSession.length === 0) return alert('문제가 없습니다.');
+            
+            // 문제점 3 수정: 랜덤 섞기(Math.random) 제거. 기존 JSON 순서(1,2,3..)대로 진행
+            
+            // 문제점 1 수정: 진행상황 불러오기
+            currentQuestionIndex = progressDB[category] || 0;
+            
+            // 만약 이미 다 푼 상태라면 처음부터 다시 시작
+            if(currentQuestionIndex >= currentQuizSession.length) {
+                currentQuestionIndex = 0;
+            } else if (currentQuestionIndex > 0) {
+                // 시작 전 가볍게 알림 (선택사항)
+                console.log(`${category} - ${currentQuestionIndex+1}번 문제부터 이어서 시작합니다.`);
+            }
+
+            document.getElementById('quiz-fullscreen').classList.add('active');
+            renderQuestion();
+        }
+
+        function quitQuiz() {
+            document.getElementById('quiz-fullscreen').classList.remove('active');
+        }
+
+        function parseQuestionAndOptions(fullText) {
+            let mainQuestion = fullText;
+            let options = [];
+            if (fullText.includes('/')) {
+                const parts = fullText.split('/');
+                mainQuestion = parts[0].trim();
+                const optionsString = parts.slice(1).join('/').trim();
+                const regex = /①(.*?)(?=②|$)②(.*?)(?=③|$)③(.*?)(?=④|$)④(.*)/;
+                const match = optionsString.match(regex);
+                if (match) { options = [ match[1].trim(), match[2].trim(), match[3].trim(), match[4].trim() ]; } 
+                else { options = ["선지 1", "선지 2", "선지 3", "선지 4"]; }
+            } else { options = ["예(O)", "아니오(X)", "모르겠습니다", "정답 확인"]; }
+            return { mainQuestion, options };
+        }
+
+        function renderQuestion() {
+            isAnswerSubmitted = false;
+            document.getElementById('next-btn').style.display = 'none';
+            document.getElementById('quiz-feedback-text').innerHTML = '';
+            
+            const q = currentQuizSession[currentQuestionIndex];
+            const parsed = parseQuestionAndOptions(q.question);
+
+            document.getElementById('q-current-num').innerText = currentQuestionIndex + 1;
+            document.getElementById('q-total-num').innerText = currentQuizSession.length;
+            
+            // 진행률 바
+            const segmentContainer = document.getElementById('progress-segments');
+            segmentContainer.innerHTML = '';
+            const progressRatio = (currentQuestionIndex + 1) / currentQuizSession.length;
+            for(let i=1; i<=5; i++) {
+                const seg = document.createElement('div');
+                seg.className = 'progress-segment';
+                if (progressRatio >= (i / 5) || (i===1 && progressRatio > 0)) seg.classList.add('filled');
+                segmentContainer.appendChild(seg);
+            }
+
+            const catTitle = isTop120Mode ? "[오답 노트 TOP 120]" : `[단원] ${q.category}`;
+            document.getElementById('quiz-category').innerText = catTitle;
+            document.getElementById('quiz-question-text').innerText = parsed.mainQuestion;
+
+            const grid = document.getElementById('quiz-options-grid');
+            grid.innerHTML = '';
+            
+            parsed.options.forEach((optText, idx) => {
+                const btn = document.createElement('div');
+                btn.className = 'option-btn';
+                // 데이터 속성에 원본 텍스트 및 번호 저장
+                btn.dataset.text = optText;
+                btn.dataset.num = idx + 1;
+                btn.innerHTML = `<span class="option-number">${idx+1}</span> <span>${optText}</span>`;
+                
+                btn.onclick = () => submitAnswer(btn, optText, q.answer, idx + 1);
+                grid.appendChild(btn);
+            });
+        }
+
+        // ==================================================
+        // 4. 시각적 피드백 로직 (문제점 4 반영: Alert 제거)
+        // ==================================================
+        function submitAnswer(btnElement, selectedText, correctAnswer, selectedNumber) {
+            if (isAnswerSubmitted) return; // 중복 클릭 방지
+            isAnswerSubmitted = true;
+
+            const currentProblem = currentQuizSession[currentQuestionIndex];
+            const allBtns = document.querySelectorAll('.option-btn');
+            
+            // 정답 확인용 함수 (기호 포함여부, 번호, 텍스트 일치)
+            const checkIsCorrect = (text, num) => {
+                const symbols = ['①','②','③','④'];
+                return correctAnswer.includes(text) || correctAnswer.includes(String(num)) || correctAnswer.includes(symbols[num-1]);
+            };
+
+            const isCorrect = checkIsCorrect(selectedText, selectedNumber);
+            const feedbackEl = document.getElementById('quiz-feedback-text');
+
+            // 모든 버튼 비활성화 시각 효과
+            allBtns.forEach(b => b.classList.add('disabled'));
+
+            if (isCorrect) {
+                // 정답 처리
+                btnElement.classList.add('correct');
+                btnElement.querySelector('.option-number').innerText = '✓';
+                
+                feedbackEl.innerText = "잘 하셨어요! 완벽합니다.";
+                feedbackEl.className = 'feedback-text correct';
+            } else {
+                // 오답 처리
+                btnElement.classList.add('incorrect');
+                btnElement.querySelector('.option-number').innerText = '✕';
+                
+                feedbackEl.innerText = "걱정하지 마세요, 아직 배우고 있잖아요!";
+                feedbackEl.className = 'feedback-text incorrect';
+                
+                currentProblem.wrongCount++;
+                saveDB();
+
+                // 실제 정답 버튼 찾아서 초록색 점선 표시
+                allBtns.forEach(b => {
+                    if (checkIsCorrect(b.dataset.text, Number(b.dataset.num))) {
+                        b.classList.add('correct');
+                        b.querySelector('.option-number').innerText = '✓';
+                    }
+                });
+            }
+
+            // 다음 진행 버튼 표시
+            document.getElementById('next-btn').style.display = 'block';
+        }
+
+        // 엔터키를 누르면 다음 문제로 이동
+        document.addEventListener('keydown', function(event) {
+            if (event.key === 'Enter' && isAnswerSubmitted && document.getElementById('quiz-fullscreen').classList.contains('active')) {
+                goToNextQuestion();
+            }
+        });
+
+        // 다음 문제로 넘어가기 & 진행상황 저장
+        function goToNextQuestion() {
+            currentQuestionIndex++;
+            
+            // 진행상황(Progress) 업데이트
+            progressDB[currentCategoryName] = currentQuestionIndex;
+            saveProgress();
+
+            if (currentQuestionIndex < currentQuizSession.length) {
+                renderQuestion();
+            } else {
+                // 퀴즈 완료 시 진행상황 초기화
+                delete progressDB[currentCategoryName];
+                saveProgress();
+                alert("🎉 퀴즈 세션이 모두 완료되었습니다!");
+                quitQuiz();
+            }
+        }
+
+        // 초기 실행
+        renderDesktop();
+    </script>
+</body>
+</html>
