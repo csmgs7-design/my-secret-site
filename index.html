@@ -16,17 +16,17 @@
         }
 
         body {
-            background-image: url('https://images.unsplash.com/photo-1617042375876-a13e36732a04?q=80&w=1920&auto=format&fit=crop');
+            /* 초기 기본 배경 */
+            background-color: #0078D7;
             background-repeat: no-repeat;
             background-position: center center;
             background-attachment: fixed;
             background-size: cover;
-            background-color: #0078D7;
             height: 100vh;
             overflow: hidden;
             display: flex;
             flex-direction: column;
-            transition: background-image 0.5s ease;
+            transition: background 0.5s ease;
         }
 
         /* ==================================================
@@ -96,19 +96,39 @@
         button.btn:hover { background: #005a9e; }
         input[type="file"] { width: 100%; padding: 12px; margin-top: 10px; border: 1px dashed #aaa; border-radius: 6px; background: #fafafa; }
 
-        /* 통계 UI & 목록(List) UI 공통 */
+        /* 리스트 UI 공통 */
+        .list-item { padding: 15px; border-bottom: 1px solid #eee; cursor: pointer; display: flex; align-items: center; gap: 10px; transition: 0.2s; }
+        .list-item:hover { background: #f0f8ff; border-left: 4px solid #0078D7; }
+        .list-title { font-weight: bold; color: #333; }
+        .img-status { font-size: 12px; padding: 3px 8px; border-radius: 12px; background: #eee; font-weight: bold; }
+        .img-status.has-img { background: #23b26d; color: white; }
+
+        /* ==================================================
+           배경화면 설정 UI
+           ================================================== */
+        .color-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; margin-bottom: 20px; }
+        .color-swatch { width: 100%; aspect-ratio: 1; border-radius: 8px; cursor: pointer; border: 2px solid transparent; transition: 0.2s; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        .color-swatch:hover { transform: scale(1.05); }
+
+        /* ==================================================
+           통계 UI (탭 및 차트)
+           ================================================== */
+        .tabs { display: flex; border-bottom: 2px solid #ddd; margin-bottom: 20px; }
+        .tab-btn { flex: 1; padding: 12px; font-size: 15px; font-weight: bold; background: none; border: none; cursor: pointer; color: #666; transition: 0.2s; border-bottom: 3px solid transparent; }
+        .tab-btn:hover { color: #0078D7; background: #f8f9fa; }
+        .tab-btn.active { color: #0078D7; border-bottom: 3px solid #0078D7; }
+
         .stat-group { background: #f8f9fa; border: 1px solid #dee2e6; padding: 15px; border-radius: 8px; margin-bottom: 15px; display: flex; justify-content: space-between; align-items: center; }
         .stat-group-title { font-weight: bold; font-size: 16px; color: #333; }
         .stat-group-count { color: #e81123; font-weight: bold; font-size: 14px; }
         .top-120-btn { width: 100%; background: #d83b01; margin-bottom: 20px; font-size: 16px; padding: 15px;}
         .top-120-btn:hover { background: #a82e01; }
-
-        .list-item { padding: 15px; border-bottom: 1px solid #eee; cursor: pointer; display: flex; align-items: center; gap: 10px; transition: 0.2s; }
-        .list-item:hover { background: #f0f8ff; border-left: 4px solid #0078D7; }
-        .list-title { font-weight: bold; color: #333; }
         
-        .img-status { font-size: 12px; padding: 3px 8px; border-radius: 12px; background: #eee; font-weight: bold; }
-        .img-status.has-img { background: #23b26d; color: white; }
+        .chart-container { display: flex; height: 250px; align-items: flex-end; gap: 15px; margin-top: 20px; padding: 20px 10px 0 10px; border-bottom: 1px solid #ccc; justify-content: space-around; }
+        .chart-bar-wrapper { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; height: 100%; }
+        .chart-bar { width: 100%; max-width: 40px; background: linear-gradient(0deg, #0078D7, #4255ff); border-radius: 4px 4px 0 0; min-height: 4px; transition: height 0.8s ease-out; box-shadow: 2px 0 5px rgba(0,0,0,0.1); }
+        .chart-label-val { font-size: 13px; font-weight: bold; margin-bottom: 5px; color: #333; }
+        .chart-label-date { font-size: 12px; margin-top: 8px; color: #666; }
 
         /* ==================================================
            퀴즈 전체화면 UI
@@ -187,7 +207,6 @@
 
     <!-- 바탕화면 -->
     <div id="desktop">
-        <!-- 초기 로딩 메시지 -->
         <div id="loading-msg" style="color:white; padding:20px; font-size:18px; font-weight:bold; text-shadow: 1px 1px 3px rgba(0,0,0,0.8);">
             ☁️ 클라우드 DB 불러오는 중...
         </div>
@@ -196,8 +215,8 @@
     <!-- 작업표시줄 -->
     <div id="taskbar">
         <div class="taskbar-btn" title="시작">🪟</div>
-        <div class="taskbar-btn text-btn" onclick="changeWallpaper()">🎨 배경화면 변경</div>
-        <!-- 효과음 토글 버튼 추가 -->
+        <!-- 배경화면 설정 모달 열기 버튼으로 변경 -->
+        <div class="taskbar-btn text-btn" onclick="openWindow('wallpaper-window')">🎨 배경 설정</div>
         <div class="taskbar-btn text-btn" id="sound-toggle-btn" onclick="toggleSound()">🔊 소리 켜짐</div>
         <div class="clock" id="clock">00:00 AM</div>
     </div>
@@ -262,15 +281,65 @@
         </div>
     </div>
 
-    <!-- Window: 통계 -->
-    <div id="stats-window" class="window">
+    <!-- Window: 배경화면 설정 (새 기능) -->
+    <div id="wallpaper-window" class="window">
         <div class="title-bar">
-            <div class="title">📊 Statistics & Review</div>
-            <button class="close-btn" onclick="closeWindow('stats-window')">✕</button>
+            <div class="title">🎨 바탕화면 설정</div>
+            <button class="close-btn" onclick="closeWindow('wallpaper-window')">✕</button>
         </div>
         <div class="window-content">
-            <button class="btn top-120-btn" onclick="startTop120Review()">🔥 틀린 문제 TOP 120 몰아보기</button>
-            <div id="stats-list"></div>
+            <p style="font-weight:bold; margin-bottom:10px; font-size:15px;">단색 테마 지정</p>
+            <div class="color-grid">
+                <div class="color-swatch" style="background: #0078D7;" onclick="setSolidWallpaper('#0078D7')"></div>
+                <div class="color-swatch" style="background: #2e3856;" onclick="setSolidWallpaper('#2e3856')"></div>
+                <div class="color-swatch" style="background: #1a2238;" onclick="setSolidWallpaper('#1a2238')"></div>
+                <div class="color-swatch" style="background: #23b26d;" onclick="setSolidWallpaper('#23b26d')"></div>
+                <div class="color-swatch" style="background: #d83b01;" onclick="setSolidWallpaper('#d83b01')"></div>
+                <div class="color-swatch" style="background: #6b69d6;" onclick="setSolidWallpaper('#6b69d6')"></div>
+                <div class="color-swatch" style="background: #000000;" onclick="setSolidWallpaper('#000000')"></div>
+                <div class="color-swatch" style="background: #4a5568;" onclick="setSolidWallpaper('#4a5568')"></div>
+                <div class="color-swatch" style="background: #805ad5;" onclick="setSolidWallpaper('#805ad5')"></div>
+                <div class="color-swatch" style="background: #3182ce;" onclick="setSolidWallpaper('#3182ce')"></div>
+            </div>
+            
+            <p style="font-weight:bold; margin-top:20px; margin-bottom:10px; font-size:15px;">내 사진으로 지정 (클라우드 동기화)</p>
+            <input type="file" id="wallpaper-upload" accept="image/*" onchange="uploadWallpaper(event)">
+            <p style="font-size:12px; color:#888; margin-top:5px;">※ 원활한 클라우드 저장을 위해 이미지가 자동으로 압축되어 적용됩니다.</p>
+            
+            <div style="display:flex; gap:10px; margin-top:20px;">
+                <button class="btn" onclick="resetDefaultWallpaper()" style="flex:1; background:#d83b01;">기본 사진 복구</button>
+                <button class="btn" onclick="closeWindow('wallpaper-window')" style="flex:1; background:#888;">닫기</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Window: 통계 (개편됨) -->
+    <div id="stats-window" class="window">
+        <div class="title-bar">
+            <div class="title">📊 Statistics</div>
+            <button class="close-btn" onclick="closeWindow('stats-window')">✕</button>
+        </div>
+        <div class="window-content" style="padding-top: 10px;">
+            <!-- 탭 메뉴 -->
+            <div class="tabs">
+                <button class="tab-btn active" id="tab-btn-wrong" onclick="switchStatsTab('wrong')">오답 통계</button>
+                <button class="tab-btn" id="tab-btn-daily" onclick="switchStatsTab('daily')">학습 기록 (푼 문제들)</button>
+            </div>
+
+            <!-- 오답 통계 내용 -->
+            <div id="content-wrong-stats">
+                <button class="btn top-120-btn" onclick="startTop120Review()">🔥 틀린 문제 TOP 120 몰아보기</button>
+                <div id="stats-list"></div>
+            </div>
+
+            <!-- 일일 학습 기록 (막대그래프) 내용 -->
+            <div id="content-daily-stats" style="display: none;">
+                <p style="font-weight:bold; font-size:15px; color:#333; margin-bottom:10px;">📅 최근 7일간의 문제 풀이 기록</p>
+                <div id="daily-chart-container" class="chart-container">
+                    <!-- 자바스크립트로 차트가 렌더링됨 -->
+                </div>
+            </div>
+
             <button class="btn" onclick="closeWindow('stats-window')" style="background:#888; width:100%;">닫기</button>
         </div>
     </div>
@@ -335,11 +404,10 @@
         const db = getFirestore(app);
 
         window.problemDB = [];
-        window.progressDB = {};
+        window.progressDB = {}; 
         let currentProblemSortType = 'abc'; 
         let currentCategorySortType = 'abc'; 
 
-        // 오디오 효과음 초기화 및 설정
         window.isSoundEnabled = localStorage.getItem('minQuizSound') !== 'off';
         document.getElementById('sound-toggle-btn').innerText = window.isSoundEnabled ? '🔊 소리 켜짐' : '🔇 소리 꺼짐';
 
@@ -358,9 +426,9 @@
                 osc.connect(gain);
                 gain.connect(audioCtx.destination);
                 osc.type = 'sine';
-                osc.frequency.setValueAtTime(523.25, audioCtx.currentTime); // C5 도
-                osc.frequency.setValueAtTime(659.25, audioCtx.currentTime + 0.1); // E5 미
-                gain.gain.setValueAtTime(0.1, audioCtx.currentTime); // 볼륨 작게
+                osc.frequency.setValueAtTime(523.25, audioCtx.currentTime);
+                osc.frequency.setValueAtTime(659.25, audioCtx.currentTime + 0.1);
+                gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
                 gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.3);
                 osc.start(audioCtx.currentTime);
                 osc.stop(audioCtx.currentTime + 0.3);
@@ -370,7 +438,13 @@
         async function loadCloudData() {
             try {
                 const progSnap = await getDoc(doc(db, "settings", "progress"));
-                if (progSnap.exists()) window.progressDB = progSnap.data();
+                if (progSnap.exists()) {
+                    window.progressDB = progSnap.data();
+                }
+
+                // 데이터 구조 초기화 검증 (배경화면, 일일통계)
+                if(!window.progressDB.wallpaper) window.progressDB.wallpaper = { type: 'default', value: 'https://images.unsplash.com/photo-1617042375876-a13e36732a04?q=80&w=1920&auto=format&fit=crop' };
+                if(!window.progressDB.dailyStats) window.progressDB.dailyStats = {};
 
                 const querySnapshot = await getDocs(collection(db, "problems"));
                 window.problemDB = [];
@@ -381,6 +455,9 @@
                 window.problemDB.sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
                 
                 document.getElementById('loading-msg').style.display = 'none';
+                
+                // 설정 적용 (배경화면 및 바탕화면 아이콘 렌더링)
+                window.applyWallpaper();
                 window.renderDesktop();
             } catch (error) {
                 console.error("Firebase 로딩 에러:", error);
@@ -398,73 +475,73 @@
             }
         }
 
-        const wallpapers = [
-            "https://images.unsplash.com/photo-1617042375876-a13e36732a04?q=80&w=1920&auto=format&fit=crop",
-            "https://images.unsplash.com/photo-1478760329108-5c3ed9d495a0?q=80&w=1920&auto=format&fit=crop",
-            "https://images.unsplash.com/photo-1506744626753-eda8151a1571?q=80&w=1920&auto=format&fit=crop",
-            "https://images.unsplash.com/photo-1451187580459-43490279c0fa?q=80&w=1920&auto=format&fit=crop"
-        ];
-        let currentWallpaperIdx = 0;
-        window.changeWallpaper = function() {
-            currentWallpaperIdx = (currentWallpaperIdx + 1) % wallpapers.length;
-            document.body.style.backgroundImage = `url('${wallpapers[currentWallpaperIdx]}')`;
-        }
-
-        // 휴지통 기능 (클라우드 일괄 삭제)
-        window.openTrashManager = function() {
-            const content = document.getElementById('trash-window-content');
-            const categories = [...new Set(window.problemDB.map(p => p.category))];
+        /* ==================================================
+           배경화면 로직 (클라우드 저장 방식)
+           ================================================== */
+        window.applyWallpaper = function() {
+            const wp = window.progressDB.wallpaper;
+            if (!wp) return;
             
-            let html = `<p style="font-weight:bold; margin-bottom:15px; font-size:16px;">삭제할 단원을 선택하세요.</p>`;
-            html += `<p style="font-size:13px; color:#e81123; margin-bottom:15px;">⚠️ 단원을 삭제하면 클라우드에서 영구적으로 삭제됩니다.</p>`;
-            
-            if(categories.length === 0) {
-                html += `<p style="color:#666;">등록된 단원이 없습니다.</p>`;
+            if (wp.type === 'color') {
+                document.body.style.backgroundImage = 'none';
+                document.body.style.backgroundColor = wp.value;
             } else {
-                html += `<div style="border-top:2px solid #eee;">`;
-                categories.forEach(cat => {
-                    html += `
-                        <div class="list-item" style="display:flex; justify-content:space-between; align-items:center;">
-                            <span class="list-title" style="font-size:16px;">📁 ${cat}</span>
-                            <button class="btn" style="margin:0; background:#e81123;" onclick="deleteCategory('${cat}')">삭제 🗑️</button>
-                        </div>
-                    `;
-                });
-                html += `</div>`;
+                document.body.style.backgroundColor = '#0078D7';
+                document.body.style.backgroundImage = `url('${wp.value}')`;
             }
-            content.innerHTML = html;
-            window.openWindow('trash-window');
         }
 
-        window.deleteCategory = async function(category) {
-            if(confirm(`정말 '${category}' 단원을 삭제하시겠습니까?\n이 작업은 되돌릴 수 없으며 클라우드에서도 모두 지워집니다.`)) {
-                try {
-                    const problemsToDelete = window.problemDB.filter(p => p.category === category);
-                    const batch = writeBatch(db);
+        window.setSolidWallpaper = async function(colorCode) {
+            window.progressDB.wallpaper = { type: 'color', value: colorCode };
+            window.applyWallpaper();
+            await window.saveProgress();
+            window.closeWindow('wallpaper-window');
+        }
+
+        window.resetDefaultWallpaper = async function() {
+            window.progressDB.wallpaper = { type: 'default', value: 'https://images.unsplash.com/photo-1617042375876-a13e36732a04?q=80&w=1920&auto=format&fit=crop' };
+            window.applyWallpaper();
+            await window.saveProgress();
+            window.closeWindow('wallpaper-window');
+        }
+
+        window.uploadWallpaper = function(event) {
+            const file = event.target.files[0];
+            if(!file) return;
+            
+            // Firestore 용량 제한(1MB)을 위해 강제 압축 진행
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const img = new Image();
+                img.onload = async function() {
+                    const canvas = document.createElement('canvas');
+                    const MAX_WIDTH = 1280; // FHD 대신 720p 수준으로 리사이즈하여 용량 최적화
+                    const MAX_HEIGHT = 720;
+                    let width = img.width; 
+                    let height = img.height;
+
+                    if (width > MAX_WIDTH) { height *= MAX_WIDTH / width; width = MAX_WIDTH; }
+                    if (height > MAX_HEIGHT) { width *= MAX_HEIGHT / height; height = MAX_HEIGHT; }
                     
-                    problemsToDelete.forEach(p => {
-                        batch.delete(doc(db, "problems", p.id));
-                    });
-                    await batch.commit();
-
-                    // 메모리 및 진행도에서 삭제
-                    window.problemDB = window.problemDB.filter(p => p.category !== category);
-                    if(window.progressDB[category]) {
-                        delete window.progressDB[category];
-                        window.saveProgress();
-                    }
-
-                    alert(`'${category}' 단원이 완전히 삭제되었습니다.`);
-                    window.openTrashManager(); // 휴지통 창 리렌더링
-                    window.renderDesktop();
-                } catch (error) {
-                    alert("삭제 중 오류가 발생했습니다.");
-                    console.error(error);
+                    canvas.width = width; canvas.height = height;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0, width, height);
+                    
+                    const base64Img = canvas.toDataURL('image/jpeg', 0.6); // 60% 품질로 압축
+                    
+                    window.progressDB.wallpaper = { type: 'image', value: base64Img };
+                    window.applyWallpaper();
+                    await window.saveProgress();
+                    
+                    alert("배경화면이 적용되고 클라우드에 성공적으로 저장되었습니다!");
+                    window.closeWindow('wallpaper-window');
                 }
-            }
+                img.src = e.target.result;
+            };
+            reader.readAsDataURL(file);
         }
 
-        // 바탕화면 렌더링 (단원 폴더 단축 아이콘 제거, 휴지통 추가)
+        /* 바탕화면 렌더링 */
         window.renderDesktop = function() {
             const desktop = document.getElementById('desktop');
             desktop.innerHTML = `
@@ -486,13 +563,61 @@
                 </div>
                 <div class="desktop-icon" onclick="openStats()">
                     <div class="icon-img">📊</div>
-                    <div class="icon-text">오답 통계</div>
+                    <div class="icon-text">통계</div>
                 </div>
                 <div class="desktop-icon" onclick="openImageManager()">
                     <div class="icon-img">🖼️</div>
                     <div class="icon-text">사진 추가</div>
                 </div>
             `;
+        }
+
+        /* 휴지통 기능 */
+        window.openTrashManager = function() {
+            const content = document.getElementById('trash-window-content');
+            const categories = [...new Set(window.problemDB.map(p => p.category))];
+            
+            let html = `<p style="font-weight:bold; margin-bottom:15px; font-size:16px;">삭제할 단원을 선택하세요.</p>`;
+            html += `<p style="font-size:13px; color:#e81123; margin-bottom:15px;">⚠️ 단원을 삭제하면 클라우드에서 영구적으로 삭제됩니다.</p>`;
+            
+            if(categories.length === 0) { html += `<p style="color:#666;">등록된 단원이 없습니다.</p>`; } 
+            else {
+                html += `<div style="border-top:2px solid #eee;">`;
+                categories.forEach(cat => {
+                    html += `
+                        <div class="list-item" style="display:flex; justify-content:space-between; align-items:center;">
+                            <span class="list-title" style="font-size:16px;">📁 ${cat}</span>
+                            <button class="btn" style="margin:0; background:#e81123;" onclick="deleteCategory('${cat}')">삭제 🗑️</button>
+                        </div>`;
+                });
+                html += `</div>`;
+            }
+            content.innerHTML = html;
+            window.openWindow('trash-window');
+        }
+
+        window.deleteCategory = async function(category) {
+            if(confirm(`정말 '${category}' 단원을 삭제하시겠습니까?\n이 작업은 되돌릴 수 없으며 클라우드에서도 모두 지워집니다.`)) {
+                try {
+                    const problemsToDelete = window.problemDB.filter(p => p.category === category);
+                    const batch = writeBatch(db);
+                    problemsToDelete.forEach(p => batch.delete(doc(db, "problems", p.id)));
+                    await batch.commit();
+
+                    window.problemDB = window.problemDB.filter(p => p.category !== category);
+                    if(window.progressDB[category]) {
+                        delete window.progressDB[category];
+                        window.saveProgress();
+                    }
+
+                    alert(`'${category}' 단원이 완전히 삭제되었습니다.`);
+                    window.openTrashManager(); 
+                    window.renderDesktop();
+                } catch (error) {
+                    alert("삭제 중 오류가 발생했습니다.");
+                    console.error(error);
+                }
+            }
         }
 
         /* 문제 모음 로직 */
@@ -661,7 +786,13 @@
             reader.readAsText(file);
         });
 
+        /* ==================================================
+           통계 메뉴 로직 (개편)
+           ================================================== */
         window.openStats = function() {
+            window.switchStatsTab('wrong'); // 기본으로 오답 통계 오픈
+            
+            // 1. 오답 통계 렌더링
             const statsList = document.getElementById('stats-list');
             statsList.innerHTML = '';
             const categories = [...new Set(window.problemDB.map(p => p.category))];
@@ -677,7 +808,62 @@
                         </div>`;
                 });
             }
+
+            // 2. 학습 기록(차트) 렌더링
+            window.renderDailyChart();
+
             window.openWindow('stats-window');
+        }
+
+        window.switchStatsTab = function(tabName) {
+            document.getElementById('tab-btn-wrong').classList.remove('active');
+            document.getElementById('tab-btn-daily').classList.remove('active');
+            document.getElementById('content-wrong-stats').style.display = 'none';
+            document.getElementById('content-daily-stats').style.display = 'none';
+
+            if (tabName === 'wrong') {
+                document.getElementById('tab-btn-wrong').classList.add('active');
+                document.getElementById('content-wrong-stats').style.display = 'block';
+            } else {
+                document.getElementById('tab-btn-daily').classList.add('active');
+                document.getElementById('content-daily-stats').style.display = 'block';
+            }
+        }
+
+        window.renderDailyChart = function() {
+            const container = document.getElementById('daily-chart-container');
+            const stats = window.progressDB.dailyStats || {};
+            
+            // 날짜순 정렬 후 최근 7일 추출
+            const dates = Object.keys(stats).sort();
+            const last7Dates = dates.slice(-7);
+
+            if (last7Dates.length === 0) {
+                container.innerHTML = '<p style="color:#666; margin:auto;">아직 문제를 푼 기록이 없습니다. 문제를 풀어보세요!</p>';
+                return;
+            }
+
+            // 그래프 최대 높이 지정을 위한 최고값 찾기
+            let maxCount = Math.max(...last7Dates.map(d => stats[d]));
+            if (maxCount === 0) maxCount = 1; // 0으로 나누기 방지
+
+            let html = '';
+            last7Dates.forEach(date => {
+                const count = stats[date];
+                const heightPct = (count / maxCount) * 100;
+                // 날짜 표기를 MM/DD 형식으로 변환
+                const dateParts = date.split('-'); 
+                const shortDate = dateParts.length === 3 ? `${dateParts[1]}/${dateParts[2]}` : date;
+
+                html += `
+                    <div class="chart-bar-wrapper">
+                        <div class="chart-label-val">${count}</div>
+                        <div class="chart-bar" style="height: ${heightPct}%;"></div>
+                        <div class="chart-label-date">${shortDate}</div>
+                    </div>
+                `;
+            });
+            container.innerHTML = html;
         }
 
         /* 사진 추가 관리자 */
@@ -742,11 +928,11 @@
                         <button class="btn" style="background:#e81123;" onclick="deleteImage(${globalIdx})">🗑️ 현재 사진 삭제</button>
                     </div>`;
             } else { html += `<p style="color:#666; font-size:14px; margin-bottom:10px;">등록된 사진이 없습니다.</p>`; }
-            html += `<input type="file" accept="image/*" onchange="uploadAndCompressImage(event, ${globalIdx})">`;
+            html += `<input type="file" accept="image/*" onchange="uploadAndCompressImageManager(event, ${globalIdx})">`;
             content.innerHTML = html;
         }
 
-        window.uploadAndCompressImage = function(event, globalIdx) {
+        window.uploadAndCompressImageManager = function(event, globalIdx) {
             const file = event.target.files[0];
             if(!file) return;
             const reader = new FileReader();
@@ -807,26 +993,18 @@
             return { mainQuestion, options };
         }
 
-        /* ==================================================
-           [버그 수정] 정교해진 정답 판별 로직 
-           ================================================== */
         const checkIsCorrect = (text, num, correctAnswer) => {
             const symbols = ['①','②','③','④'];
             const cleanAnswer = correctAnswer.trim();
             
-            // 1. 기호가 명시적으로 포함되어 있으면 무조건 정답
             if (cleanAnswer.includes(symbols[num-1])) return true;
             
-            // 2. 텍스트 일치 여부 (앞의 기호나 번호를 제거한 순수 텍스트 비교)
-            // 예: "③ 10" -> "10" / "④ 특별교육" -> "특별교육"
             const strippedAnswer = cleanAnswer.replace(/^[①②③④\d]+[\.\s번\)]*/, '').trim();
             const strippedText = text.replace(/^[①②③④\d]+[\.\s번\)]*/, '').trim();
             
             if (strippedAnswer === strippedText && strippedText.length > 0) return true;
             if (cleanAnswer === text.trim()) return true;
 
-            // 3. 단순 번호만 적힌 경우 (예: "1", "1번", "1.") 엄격한 정규식 검사
-            // "1시간"의 "1"에 반응하는 것을 방지하기 위해 문장 경계(boundary) 활용
             const numRegex = new RegExp(`^${num}(번|\\.|\\)|\\s|$)`);
             if (numRegex.test(cleanAnswer)) return true;
 
@@ -957,11 +1135,14 @@
             isAnswerSubmitted = true;
 
             const allBtns = document.querySelectorAll('.option-btn');
-            
-            // 개선된 checkIsCorrect 호출
             const isCorrect = checkIsCorrect(selectedText, selectedNumber, correctAnswer);
             const feedbackEl = document.getElementById('quiz-feedback-text');
             allBtns.forEach(b => b.classList.add('disabled'));
+            
+            // 일일 학습 기록 누적
+            const today = new Date().toLocaleDateString('en-CA'); // YYYY-MM-DD 형식 추출
+            if (!window.progressDB.dailyStats) window.progressDB.dailyStats = {};
+            window.progressDB.dailyStats[today] = (window.progressDB.dailyStats[today] || 0) + 1;
 
             if (isCorrect) {
                 btnElement.classList.add('correct');
@@ -969,14 +1150,14 @@
                 feedbackEl.innerText = "잘 하셨어요! 완벽합니다.";
                 feedbackEl.className = 'feedback-text correct';
                 
-                window.playCorrectSound(); // 정답 효과음 재생
+                window.playCorrectSound(); 
 
                 if (isCurrentFromReview) reviewQueue.shift();
                 else { nextNewQuestionIndex++; batchNewAttempts++; }
                 masteredCount++;
 
                 window.progressDB[currentCategoryName] = masteredCount;
-                window.saveProgress();
+                window.saveProgress(); // 진도 및 일일 통계 저장
             } else {
                 btnElement.classList.add('incorrect');
                 btnElement.querySelector('.option-number').innerText = '✕';
@@ -993,6 +1174,8 @@
                     reviewQueue.push(currentQuestion);
                     nextNewQuestionIndex++; batchNewAttempts++;
                 }
+                
+                window.saveProgress(); // 오답일 때도 일일 통계를 저장하기 위해 호출
 
                 allBtns.forEach(b => {
                     if (checkIsCorrect(b.dataset.text, Number(b.dataset.num), correctAnswer)) {
